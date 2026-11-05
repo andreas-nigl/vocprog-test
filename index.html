@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Vokabel-Scanner & Trainer · Testversion 0.2</title>
+  <link rel="stylesheet" href="vocprog-enhancements.css">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  
+  <!-- PWA & iOS Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vokabeln">
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary: #64748b;
+      --secondary-dark: #475569;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #10b981;
+      --accent-dark: #059669;
+      --error: #ef4444;
+      --info-bg: #eff6ff;
+      --info-border: #bfdbfe;
+      --info-text: #1e40af;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: var(--card); border-radius: 14px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+    h1, h2, h3 { margin: 0 0 12px 0; font-size: 1.2rem; }
+    label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; display: block; }
+    input:not([type="file"]), select, button { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 0.95rem; margin-bottom: 12px; }
+    button { background: var(--primary); color: white; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    button:active { background: var(--primary-dark); }
+    button.success { background: var(--accent); }
+    button.success:active { background: var(--accent-dark); }
+    button.danger { background: var(--error); }
+    
+    .status-badge {
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
+      color: var(--info-text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .file-btn-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .file-btn-wrapper input[type=file] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .gallery { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px; }
+    .gallery-item { position: relative; }
+    .gallery img { width: 60px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+    .remove-btn { position: absolute; top: -5px; right: -5px; background: var(--error); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; border: none; padding: 0; margin: 0; }
+    
+    .trainer-card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 16px; }
+    .item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 1.1rem; }
+    .item-text { flex-grow: 1; font-weight: 500; }
+    .target-box { border: 2px dashed var(--border); border-radius: 10px; padding: 12px; min-height: 50px; background: #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
+    .masked { filter: blur(8px); user-select: none; color: transparent; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+    
+    .target-box .item-text u, .item-row .item-text u {
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+      text-decoration-color: var(--primary);
+    }
+
+    .icon-btn { width: 40px; height: 40px; padding: 0; border-radius: 50%; background: #e2e8f0; color: var(--text); display: inline-flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 0; border: none; }
+    .icon-btn:active { background: #cbd5e1; }
+    .nav-controls { display: flex; gap: 10px; }
+    .hidden { display: none !important; }
+    #scanStatus { font-size: 0.85rem; color: var(--text-muted); word-wrap: break-word; margin-bottom: 8px; }
+    .error-text { color: var(--error) !important; font-weight: bold; }
+    .btn-group { display: flex; gap: 8px; margin-bottom: 0; }
+    .btn-group > * { flex: 1; margin-bottom: 0; }
+    #refText { font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-top: -8px; font-family: monospace; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card" id="configCard">
+    <h2>1. Google Gemini API & Sprache</h2>
+    <label>Dein API Key (wird lokal gespeichert)</label>
+    <input type="password" id="apiKey" placeholder="AIzaSy...">
+    <label>Fremdsprache</label>
+    <select id="targetLang" onchange="onLanguageChange()">
+      <option value="en-US">Englisch</option>
+      <option value="fr-FR">Französisch</option>
+      <option value="es-ES">Spanisch</option>
+      <option value="la-LA">Lateinisch</option>
+      <option value="pt-PT">Portugiesisch</option>
+      <option value="nl-NL">Niederländisch</option>
+    </select>
+  </div>
+
+  <div class="card" id="profileCard"><div class="profile-row"><span id="profileStatus">Lernprofil</span><select id="profilePicker" onchange="setLearningProfile(this.value)"><option>Andreas</option><option>Niklas</option></select></div></div>
+
+  <div class="card" id="scanCard">
+    <h2>2. Buchseiten & Datenverwaltung</h2>
+    
+    <div class="status-badge" id="scannedPagesBadge">
+      📖 Vorhandene Seiten: Keinen Speicherstand gefunden
+    </div>
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
+    <div class="gallery" id="imageGallery"></div>
+    
+    <div class="btn-group" style="margin-bottom: 12px;">
+      <div class="file-btn-wrapper">
+        <button type="button" id="cameraPickerBtn" onclick="openBookPicker(\'camera\')">📸 Kamera</button>
+        <input type="file" hidden id="cameraInput" accept="image/*" capture="environment">
+      </div>
+      <div class="file-btn-wrapper">
+        <button type="button" id="galleryPickerBtn" onclick="openBookPicker(\'gallery\')">📂 Galerie</button>
+        <input type="file" hidden id="galleryInput" accept="image/*" multiple>
+      </div>
+    </div>
+
+    <button class="success hidden" id="analyzeBtn" onclick="analyzePages()">🔍 Seiten analysieren & Vokabeln laden</button>
+    <div id="scanStatus"></div>
+
+    <hr style="border: none; border-top: 1px solid var(--border); margin: 12px 0;">
+
+    <label style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">Datensicherung (Textdatei / UTF-8)</label>
+    <div class="btn-group" style="margin-bottom: 12px;">
+      <div class="file-btn-wrapper" style="margin-bottom: 0;">
+        <button type="button">💾 Exportieren</button>
+        <button type="button" style="position: absolute; left:0; top:0; width:100%; height:100%; opacity:0; cursor:pointer;" onclick="exportDataToFile()"></button>
+      </div>
+      <div class="file-btn-wrapper" style="margin-bottom: 0;">
+        <button type="button">📂 Einlesen</button>
+        <input type="file" id="importInput" accept=".txt,.json" onchange="importDataFromFile(event)">
+      </div>
+    </div>
+    
+    
+
+    <hr style="border: none; border-top: 1px solid var(--border); margin: 12px 0;">
+
+    <button class="danger" style="margin-bottom: 0; font-size: 0.85rem; padding: 10px;" onclick="clearCurrentLangData()">🗑️ Speicher für aktuelle Sprache löschen</button>
+  </div>
+
+  <div class="card hidden" id="rangeCard">
+    <h2>3. Lernbereich & Modus</h2>
+    
+    <label>Verfügbare Bücher</label>
+    <select id="bookSelect" onchange="pickLearningBook()"></select>
+    <input type="hidden" id="pageRangeInput" oninput="filterVocabByPages()">
+    
+    <label>Erste Vokabel (Start)</label>
+    <select id="startVocab"></select>
+    <label>Letzte Vokabel (Stopp)</label>
+    <select id="endVocab"></select>
+    
+    <label>Abfragerichtung</label>
+    <select id="direction">
+      <option value="de_to_foreign">Deutsch ➔ Fremdsprache</option>
+      <option value="foreign_to_de">Fremdsprache ➔ Deutsch</option>
+    </select>
+    
+    <label>Lernmodus</label>
+    <select id="studyMode">
+      <option value="words">Einzelne Vokabeln</option>
+      <option value="book_sentences">Beispielsätze aus dem Buch</option>
+      <option value="ai_combined">Kombinierte Sätze (Vollständiger KI-Mix)</option>
+    </select>
+    
+    <label><input type="checkbox" id="randomize" style="width: auto; margin-right: 6px;" checked> Zufällige Reihenfolge</label>
+    <button onclick="startTraining(event)">▶ Abfrage starten</button>
+  </div>
+
+  <div class="trainer-card hidden" id="trainerCard">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span id="counter" style="font-size: 0.85rem; color: var(--text-muted);">1 / 10</span>
+      <button class="icon-btn" style="font-size: 0.9rem;" onclick="exitTrainer()">✕</button>
+    </div>
+    <div class="item-row">
+      <div class="item-text" id="promptText">Frage...</div>
+      <button class="icon-btn" title="Vorlesen" onclick="playAudio('prompt')">🔊</button>
+    </div>
+    <div class="answer-entry"><input id="answerInput" autocomplete="off" placeholder="Übersetzung eingeben …" onkeydown="checkTypedAnswer(event)"><button type="button" class="icon-btn" title="Spracheingabe" onclick="startSpeechRecognition()">🎤</button></div>
+    <div id="answerFeedback" aria-live="polite"></div>
+    <div class="target-box">
+      <button class="icon-btn" id="toggleEyeBtn" title="Aufdecken/Verstecken" onclick="toggleMask()">👁️</button>
+      <div class="item-text masked" id="targetText" style="padding: 0 10px;">Antwort...</div>
+      <div style="display: flex; gap: 4px;">
+        <button class="icon-btn" title="Vorlesen" onclick="playAudio('target')">🔊</button>
+
+      </div>
+    </div>
+    <div id="refText"></div>
+    <div class="nav-controls">
+      <button class="secondary" onclick="prevCard()">Zurück</button>
+      <button onclick="nextCard()">Weiter</button>
+    </div>
+  </div>
+</div>
+<div class="analysis-float-zone" role="group" aria-label="Auswertung"><button type="button" id="analysisOpenBtn" class="analysis-open" onclick="showLearningAnalysis()" title="Lernanalyse öffnen" aria-label="Lernanalyse öffnen"><svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-8M22 20H2"/></svg></button></div>
+
+<script>
+  let rawImages = [];
+  let vocabList = [];
+  let filteredVocabList = [];
+  let trainingItems = [];
+  let currentIndex = 0;
+  let isMasked = true;
+
+  window.onload = () => {
+    const savedKey = localStorage.getItem('geminiApiKey');
+    if (savedKey) {
+      document.getElementById('apiKey').value = savedKey;
+    }
+    const savedLang = localStorage.getItem('vocab_trainer_current_lang');
+    if (savedLang) {
+      document.getElementById('targetLang').value = savedLang;
+    }
+    loadFromLocalStorage();
+  };
+
+  document.getElementById('apiKey').addEventListener('change', (e) => {
+    localStorage.setItem('geminiApiKey', e.target.value);
+  });
+
+  function onLanguageChange() {
+    const currentLang = document.getElementById('targetLang').value;
+    localStorage.setItem('vocab_trainer_current_lang', currentLang);
+    loadFromLocalStorage();
+  }
+
+  function getStorageKey() {
+    const lang = document.getElementById('targetLang').value;
+    return `vocab_trainer_data_${lang}`;
+  }
+
+  function resizeImage(file, maxWidth = 1200) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleFileInput(e) {
+    const files = Array.from(e.target.files);
+    if(files.length === 0) return;
+    const status = document.getElementById('scanStatus');
+    status.classList.remove('error-text');
+    status.innerText = "Verarbeite Bild(er)...";
+    for (let file of files) {
+      const resizedDataUrl = await resizeImage(file);
+      rawImages.push(resizedDataUrl);
+    }
+    status.innerText = "";
+    renderGallery();
+    e.target.value = '';
+  }
+
+  document.getElementById('cameraInput').addEventListener('change', handleFileInput);
+  document.getElementById('galleryInput').addEventListener('change', handleFileInput);
+
+  function removeImage(index) {
+    rawImages.splice(index, 1);
+    renderGallery();
+  }
+
+  function renderGallery() {
+    const gallery = document.getElementById('imageGallery');
+    gallery.innerHTML = '';
+    rawImages.forEach((src, index) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'gallery-item';
+      const img = document.createElement('img');
+      img.src = src;
+      const btn = document.createElement('button');
+      btn.className = 'remove-btn';
+      btn.innerHTML = '✕';
+      btn.onclick = () => removeImage(index);
+      wrapper.appendChild(img);
+      wrapper.appendChild(btn);
+      gallery.appendChild(wrapper);
+    });
+    if (rawImages.length > 0) {
+      document.getElementById('analyzeBtn').classList.remove('hidden');
+    } else {
+      document.getElementById('analyzeBtn').classList.add('hidden');
+    }
+  }
+
+  async function analyzePages() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) return alert('Bitte zuerst den Gemini API Key eingeben.');
+    const status = document.getElementById('scanStatus');
+    status.classList.remove('error-text');
+    status.innerText = "Analysiere Seiten mit der KI... Das dauert einige Sekunden.";
+
+    const targetLangSelect = document.getElementById('targetLang');
+    const targetLangName = targetLangSelect.options[targetLangSelect.selectedIndex].text;
+
+    const contents = [{
+      parts: [
+        {
+          text: `Analysiere die Vokabelseiten Zeile für Zeile (horizontal).
+          WICHTIG ZUR SPRACHE:
+          Ermittle automatisch die auf den Buchseiten abgedruckte Fremdsprache (z.B. Englisch, Französisch, Spanisch, Latein).
+          
+          SEHR WICHTIG ZUM BILDMATERIAL & PLATZHALTER/TILDEN:
+          Falls in Beispielsätzen Platzhalter, Wellenlinien (~) oder Abkürzungen vorkommen (z.B. '~ sth.', 'to ~'), ERSETZE DIE WELLE BZW. DEN PLATZHALTER VOLLSTÄNDIG durch das konkrete fremdsprachige Wort bzw. die vollständige grammatikalische Form!
+          In 'sentence_foreign' darf NIEMALS eine Welle (~) stehen bleiben, sondern IMMER der grammatikalisch vollständige Satz!
+
+          Erfasse die Seitenzahl der Buchseite.
+          Ordne in jeder Zeile das Fremdwort, die deutsche Übersetzung und (falls vorhanden) den Beispielsatz zu.
+          
+          SEHR WICHTIG ZUR ÜBERSETZUNG: 
+          Prüfe in der 3. Spalte (Beispielsätze): Steht unter dem Satz direkt eine deutsche Übersetzung? 
+          -> JA: Übernimm diese exakt so aus dem Buch. 
+          -> NEIN: Übersetze den Satz SELBST korrekt ins Deutsche! Nimm als Satzübersetzung NIEMALS einfach nur das einzelne deutsche Vokabel-Wort aus Spalte 2!
+
+          Antworte AUSSCHLIESSLICH im gültigen JSON-Format als Objekt mit folgender Struktur:
+          {
+            "detected_language_code": "en-US", 
+            "items": [
+              { "page": "190", "foreign": "Fremdwort", "german": "deutsche Übersetzung", "sentence_foreign": "Vollständiger Beispielsatz ohne Welle", "sentence_german": "Satzübersetzung" }
+            ]
+          }
+          Mögliche Werte für 'detected_language_code': 'en-US', 'fr-FR', 'es-ES', 'la-LA', 'pt-PT', 'nl-NL'.`
+        },
+        ...rawImages.map(imgData => ({
+          inline_data: {
+            mime_type: "image/jpeg",
+            data: imgData.split(',')[1] 
+          }
+        }))
+      ]
+    }];
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents })
+      });
+      if (!response.ok) {
+         const errorData = await response.json();
+         throw new Error(errorData.error?.message || "Netzwerkfehler zur API.");
+      }
+      const data = await response.json();
+      if (!data.candidates || data.candidates.length === 0) {
+        throw new Error("Die KI hat keine verwertbare Antwort geliefert.");
+      }
+      let text = data.candidates[0].content.parts[0].text;
+      let parsedResponse = {};
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+         parsedResponse = JSON.parse(jsonMatch[0]);
+      } else {
+         let cleanText = text.replace(/```json|```/g, '').trim();
+         parsedResponse = JSON.parse(cleanText);
+      }
+
+      let newVocabs = parsedResponse.items || parsedResponse;
+      if (!Array.isArray(newVocabs) && parsedResponse.items) newVocabs = parsedResponse.items;
+
+      if (parsedResponse.detected_language_code && parsedResponse.detected_language_code !== targetLangSelect.value) {
+        throw new Error("Die erkannte Sprache stimmt nicht mit dem ausgewählten Buch überein. Bilder bleiben für eine erneute Zuordnung erhalten.");
+      }
+
+      let addedCount = mergeVocabularies(newVocabs);
+
+      saveToLocalStorage();
+      updateScannedPagesUI();
+      initPageInputAndSelectors();
+      document.getElementById('rangeCard').classList.remove('hidden');
+      status.innerText = `${addedCount} neue Vokabeln erfolgreich erkannt & gespeichert!`;
+      rawImages = [];
+      renderGallery();
+    } catch (err) {
+      console.error(err);
+      status.classList.add('error-text');
+      status.innerText = "Fehler: " + err.message;
+    }
+  }
+
+  function mergeVocabularies(incomingList) {
+    let addedCount = 0;
+
+    incomingList.forEach(item => {
+      const pageStr = String(item.page || "?").trim();
+      const foreignStr = String(item.foreign || "").trim();
+      const germanStr = String(item.german || "").trim();
+
+      if (!foreignStr && !germanStr) return;
+
+      const isDuplicate = vocabList.some(v => 
+        v.bookId === item.bookId &&
+        String(v.page).trim() === pageStr &&
+        String(v.foreign).trim().toLowerCase() === foreignStr.toLowerCase() &&
+        String(v.german).trim().toLowerCase() === germanStr.toLowerCase()
+      );
+
+      if (!isDuplicate) {
+        vocabList.push({
+          page: pageStr,
+          id: item.id,
+          bookId: item.bookId,
+          updatedAt: item.updatedAt,
+          foreign: foreignStr,
+          german: germanStr,
+          sentence_foreign: item.sentence_foreign || "",
+          sentence_german: item.sentence_german || ""
+        });
+        addedCount++;
+      }
+    });
+
+    rebuildReferences();
+    return addedCount;
+  }
+
+  function rebuildReferences() {
+    vocabList.sort((a, b) => {
+      let pA = parseInt(a.page) || 0;
+      let pB = parseInt(b.page) || 0;
+      return pA - pB;
+    });
+
+    let pageCounters = {};
+    vocabList.forEach(item => {
+      let p = item.page || "?";
+      if(!pageCounters[p]) pageCounters[p] = 0;
+      pageCounters[p]++;
+      item.pageIndex = pageCounters[p];
+      item.refVocab = `S${p} V${item.pageIndex}`;
+      item.refSentence = `S${p} S${item.pageIndex}`;
+    });
+  }
+
+  function saveToLocalStorage() {
+    localStorage.setItem(getStorageKey(), JSON.stringify(vocabList));
+  }
+
+  function loadFromLocalStorage() {
+    const key = getStorageKey();
+    const data = localStorage.getItem(key);
+    vocabList = [];
+    if (data) {
+      try {
+        vocabList = JSON.parse(data);
+      } catch(e) { console.error(e); }
+    }
+    
+    updateScannedPagesUI();
+
+    if (vocabList.length > 0) {
+      initPageInputAndSelectors();
+      document.getElementById('rangeCard').classList.remove('hidden');
+    } else {
+      document.getElementById('rangeCard').classList.add('hidden');
+    }
+  }
+
+  function updateScannedPagesUI() {
+    const badge = document.getElementById('scannedPagesBadge');
+    const targetLangSelect = document.getElementById('targetLang');
+    const langName = targetLangSelect.options[targetLangSelect.selectedIndex].text;
+
+    if (!vocabList || vocabList.length === 0) {
+      badge.innerText = `📖 Vorhandene Seiten (${langName}): Keine Daten vorhanden`;
+      return;
+    }
+
+    const pages = [...new Set(vocabList.map(v => parseInt(v.page)).filter(n => !isNaN(n)))].sort((a,b)=>a-b);
+    let rangeStr = formatPageRanges(pages);
+    badge.innerText = `📖 Vorhandene Seiten (${langName}): S. ${rangeStr} (${vocabList.length} Vokabeln)`;
+  }
+
+  function formatPageRanges(pages) {
+    if (!pages || pages.length === 0) return "-";
+    let ranges = [];
+    let start = pages[0], prev = pages[0];
+    for (let i = 1; i < pages.length; i++) {
+      if (pages[i] === prev + 1) {
+        prev = pages[i];
+      } else {
+        ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+        start = pages[i];
+        prev = pages[i];
+      }
+    }
+    ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+    return ranges.join(', ');
+  }
+
+  function initPageInputAndSelectors() {
+    if (!vocabList.length) return;
+    const pages = [...new Set(vocabList.map(v => parseInt(v.page)).filter(n => !isNaN(n)))].sort((a,b)=>a-b);
+    document.getElementById('pageRangeInput').value = formatPageRanges(pages);
+    filterVocabByPages();
+  }
+
+  function filterVocabByPages() {
+    const inputStr = document.getElementById('pageRangeInput').value;
+    const allowedPages = parsePageRanges(inputStr);
+    
+    if (allowedPages.length === 0 && inputStr.trim() !== '') {
+      filteredVocabList = vocabList;
+    } else if (inputStr.trim() === '') {
+      filteredVocabList = vocabList;
+    } else {
+      filteredVocabList = vocabList.filter(v => allowedPages.includes(parseInt(v.page)));
+    }
+    populateSelectors();
+  }
+
+  function parsePageRanges(str) {
+    let pages = [];
+    let parts = str.split(',');
+    parts.forEach(part => {
+      part = part.trim();
+      if (part.includes('-')) {
+        let sub = part.split('-');
+        let start = parseInt(sub[0]), end = parseInt(sub[1]);
+        if (!isNaN(start) && !isNaN(end)) {
+          for (let i = Math.min(start, end); i <= Math.max(start, end); i++) {
+            pages.push(i);
+          }
+        }
+      } else {
+        let num = parseInt(part);
+        if (!isNaN(num)) pages.push(num);
+      }
+    });
+    return [...new Set(pages)];
+  }
+
+  function populateSelectors() {
+    const startSelect = document.getElementById('startVocab');
+    const endSelect = document.getElementById('endVocab');
+    startSelect.innerHTML = '';
+    endSelect.innerHTML = '';
+    
+    const targetList = filteredVocabList;
+    
+    targetList.forEach((item, index) => {
+      const optText = `[${item.refVocab || 'S?'}] ${item.foreign} – ${item.german}`;
+      startSelect.add(new Option(optText, index));
+      endSelect.add(new Option(optText, index));
+    });
+    if (targetList.length > 0) endSelect.selectedIndex = targetList.length - 1;
+  }
+
+  function exportDataToFile() {
+    if (!vocabList.length) return alert('Keine Vokabeln für die gewählte Sprache zum Exportieren vorhanden.');
+    const jsonStr = JSON.stringify(vocabList, null, 2);
+    const blob = new Blob([jsonStr], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const langCode = document.getElementById('targetLang').value;
+    a.download = `vokabeln_${langCode}_backup_${new Date().toISOString().slice(0,10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importDataFromFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imported = JSON.parse(e.target.result);
+        if (Array.isArray(imported)) {
+          let added = mergeVocabularies(imported);
+          saveToLocalStorage();
+          updateScannedPagesUI();
+          initPageInputAndSelectors();
+          document.getElementById('rangeCard').classList.remove('hidden');
+          alert(`${added} neue Vokabeln ohne Duplikate eingelesen!`);
+        } else {
+          alert('Ungültiges Dateiformat.');
+        }
+      } catch (err) {
+        alert('Fehler beim Lesen der Datei: ' + err.message);
+      }
+      event.target.value = '';
+    };
+    reader.readAsText(file);
+  }
+
+  function clearCurrentLangData() {
+    const langName = document.getElementById('targetLang').options[document.getElementById('targetLang').selectedIndex].text;
+    if (confirm(`Möchtest du wirklich alle gespeicherten Vokabeln für ${langName} löschen?`)) {
+      localStorage.removeItem(getStorageKey());
+      vocabList = [];
+      filteredVocabList = [];
+      updateScannedPagesUI();
+      document.getElementById('rangeCard').classList.add('hidden');
+      alert(`Speicher für ${langName} wurde gelöscht.`);
+    }
+  }
+
+  async function startTraining(event) {
+    const start = parseInt(document.getElementById('startVocab').value);
+    const end = parseInt(document.getElementById('endVocab').value);
+    const mode = document.getElementById('studyMode').value;
+    const isRandom = document.getElementById('randomize').checked;
+
+    if (isNaN(start) || isNaN(end)) return alert('Bitte wähle gültige Start- und Stopp-Vokabeln aus.');
+    if (start > end) return alert('Die Start-Vokabel muss vor der Stopp-Vokabel liegen.');
+    
+    const activeList = filteredVocabList;
+    const selectedSlice = activeList.slice(start, end + 1);
+
+    if (mode === 'words') {
+      trainingItems = selectedSlice.map(v => ({ 
+          prompt: v.german, 
+          target: v.foreign, 
+          pLang: 'de-DE', 
+          tLang: document.getElementById('targetLang').value,
+          ref: v.refVocab, sourceId: v.id, bookId: v.bookId, page: v.page, kind: "words"
+      }));
+    } else if (mode === 'book_sentences') {
+      trainingItems = selectedSlice.filter(v => v.sentence_foreign && v.sentence_foreign.length > 2).map(v => ({
+        prompt: v.sentence_german || v.german,
+        target: v.sentence_foreign,
+        pLang: 'de-DE',
+        tLang: document.getElementById('targetLang').value,
+        ref: v.refSentence, sourceId: v.id, bookId: v.bookId, page: v.page, kind: "sentences"
+      }));
+    } else if (mode === 'ai_combined') {
+      const btn = event.target;
+      const btnText = btn.innerText;
+      btn.innerText = "Generiere vollständigen KI-Mix...";
+      btn.disabled = true;
+      try {
+        await generateAllCombinedSentences(selectedSlice, btn, btnText, isRandom);
+      } catch (err) {
+        console.error(err);
+        alert("Fehler beim Generieren der KI-Sätze.");
+        btn.innerText = btnText;
+        btn.disabled = false;
+        return;
+      }
+    }
+
+    if (mode !== 'ai_combined') {
+        if (document.getElementById('direction').value === 'foreign_to_de') {
+          trainingItems = trainingItems.map(item => ({
+            prompt: item.target,
+            target: item.prompt,
+            pLang: item.tLang,
+            tLang: item.pLang,
+            ref: item.ref, sourceId: item.sourceId, bookId: item.bookId, page: item.page, kind: item.kind
+          }));
+        }
+        if (isRandom) {
+          trainingItems.sort(() => Math.random() - 0.5);
+        }
+        if (trainingItems.length === 0) {
+          alert("Für diesen Bereich wurden keine passenden Daten gefunden.");
+          return;
+        }
+        currentIndex = 0;
+        document.getElementById('configCard').classList.add('hidden');
+        document.getElementById('scanCard').classList.add('hidden');
+        document.getElementById('rangeCard').classList.add('hidden');
+        document.getElementById('trainerCard').classList.remove('hidden');
+        showCard();
+    }
+  }
+
+  async function generateAllCombinedSentences(vocabSlice, btn, originalBtnText, isRandom) {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const targetLangSelect = document.getElementById('targetLang');
+    const targetLangName = targetLangSelect.options[targetLangSelect.selectedIndex].text;
+    
+    const promptData = vocabSlice.map(v => ({
+       foreign: v.foreign,
+       german: v.german,
+       refVocab: v.refVocab
+    }));
+
+    const prompt = `Analysiere die folgenden ${vocabSlice.length} Vokabeln vollständig. Erstelle eine Reihe von kurzen Übungssätzen auf ${targetLangName}, so dass ABSOLUT ALLE übergebenen Vokabeln lückenlos in diesen Sätzen abgedeckt werden.
+    Jeder Satz darf maximal 10 Wörter lang sein und soll aus maximal 4 dieser Vokabeln kombiniert werden. Verteile die Vokabeln gleichmäßig über die Sätze.
+    WICHTIG ZUR FORMATIERUNG: Markiere im fremdsprachigen Satz genau die Wörter, die den Vokabeln entsprechen, mit HTML-Unterstreichungs-Tags <u>Wort</u>, damit sie im UI unterstrichen dargestellt werden.
+    Gebe bei jedem Satz im Feld 'ref' exakt an, welche Vokabel-Referenzen (z.B. Mix: S190 V1, V3) in diesem Satz verwendet wurden.
+    Vokabel-Daten: ${JSON.stringify(promptData)}
+    Antworte AUSSCHLIESSLICH als JSON-Liste von Objekten im Format:
+    [
+      { "german": "Deutscher Satz", "foreign": "Fremdsprachiger Satz mit <u>unterstrichenen</u> Kernwörtern", "ref": "Mix: S190 V1, V3" }
+    ]`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    if (!response.ok) throw new Error("Netzwerkfehler.");
+    const data = await response.json();
+    let text = data.candidates[0].content.parts[0].text;
+    let cleanText = text.replace(/```json|```/g, '').trim();
+    let items = JSON.parse(cleanText);
+
+    trainingItems = items.map(c => {
+      let obj = {
+        prompt: c.german,
+        target: c.foreign,
+        pLang: 'de-DE',
+        tLang: document.getElementById('targetLang').value,
+        ref: c.ref,
+        bookId: document.getElementById('bookSelect').value,
+        page: String(vocabSlice[0]?.page || "?"),
+        pages: [...new Set((String(c.ref||"").match(/S\d+/g)||[]).map(s=>s.slice(1)))].length ?
+          [...new Set((String(c.ref||"").match(/S\d+/g)||[]).map(s=>s.slice(1)))] :
+          [String(vocabSlice[0]?.page || "?")],
+        sourceId: c.ref,
+        kind: "special",
+        isHtmlTarget: true
+      };
+      if (document.getElementById('direction').value === 'foreign_to_de') {
+        obj = {
+          prompt: obj.target,
+          target: obj.prompt,
+          pLang: obj.tLang,
+          tLang: obj.pLang,
+          ref: obj.ref,
+          bookId: obj.bookId, page: obj.page, pages: obj.pages, sourceId: obj.sourceId, kind: obj.kind,
+          isHtmlPrompt: true
+        };
+      }
+      return obj;
+    });
+
+    if (isRandom && trainingItems.length > 1) {
+      trainingItems.sort(() => Math.random() - 0.5);
+    }
+
+    btn.innerText = originalBtnText;
+    btn.disabled = false;
+
+    if (trainingItems.length === 0) {
+      alert("Es konnten keine Mix-Sätze generiert werden.");
+      return;
+    }
+
+    currentIndex = 0;
+    document.getElementById('configCard').classList.add('hidden');
+    document.getElementById('scanCard').classList.add('hidden');
+    document.getElementById('rangeCard').classList.add('hidden');
+    document.getElementById('trainerCard').classList.remove('hidden');
+    showCard();
+  }
+
+  function showCard() {
+    if (trainingItems.length === 0) return;
+    const current = trainingItems[currentIndex];
+    
+    const promptEl = document.getElementById('promptText');
+    if (current.isHtmlPrompt) {
+      promptEl.innerHTML = safeUnderline(current.prompt);
+    } else {
+      promptEl.innerText = current.prompt;
+    }
+
+    const targetEl = document.getElementById('targetText');
+    if (current.isHtmlTarget) {
+      targetEl.innerHTML = safeUnderline(current.target);
+    } else {
+      targetEl.innerText = current.target;
+    }
+
+    document.getElementById('counter').innerText = `${currentIndex + 1} / ${trainingItems.length}`;
+    document.getElementById('refText').innerText = current.ref || "";
+    isMasked = true;
+    document.getElementById('targetText').classList.add('masked');
+  }
+
+  function toggleMask() {
+    isMasked = !isMasked;
+    document.getElementById('targetText').classList.toggle('masked', isMasked);
+  }
+
+  function nextCard() {
+    if (currentIndex < trainingItems.length - 1) {
+      currentIndex++;
+      showCard();
+    }
+  }
+
+  function prevCard() {
+    if (currentIndex > 0) {
+      currentIndex--;
+      showCard();
+    }
+  }
+
+  function exitTrainer() {
+    document.getElementById('trainerCard').classList.add('hidden');
+    document.getElementById('rangeCard').classList.remove('hidden');
+    document.getElementById('scanCard').classList.remove('hidden');
+    document.getElementById('configCard').classList.remove('hidden');
+  }
+
+  function playAudio(type) {
+    const item = trainingItems[currentIndex];
+    let rawText = type === 'prompt' ? item.prompt : item.target;
+    let tempDiv = document.createElement('div');
+    tempDiv.innerHTML = rawText;
+    let cleanText = cleanSpokenText(tempDiv.textContent || tempDiv.innerText || "");
+
+    let lang = type === 'prompt' ? item.pLang : item.tLang;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = lang;
+    
+    if (lang !== 'de-DE') {
+      utterance.rate = 0.85;
+    } else {
+      utterance.rate = 1.0;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function startSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert('Spracherkennung wird von diesem Browser nicht unterstützt.');
+    const recognition = new SpeechRecognition();
+    recognition.lang = trainingItems[currentIndex].tLang;
+    recognition.start();
+    recognition.onresult = (event) => {
+      const spoken = event.results[0][0].transcript;
+      alert(`Erkannt: "${spoken}"`);
+    };
+  }
+</script>
+
+<dialog id="bookPicker" class="voc-dialog"><h3>Buch für neue Seiten auswählen</h3>
+<label>Vorhandenes Buch</label><select id="pickerBook"></select>
+<input id="pickerNewName" placeholder="Neuen Buchnamen eingeben" hidden>
+<div class="dialog-buttons"><button type="button" onclick="commitBookPicker()">Weiter</button><button type="button" onclick="document.getElementById('bookPicker').close()">Abbrechen</button></div></dialog>
+<dialog id="analysisDialog" class="voc-dialog wide"><div class="dialog-head"><h2>Lernanalyse</h2><button type="button" onclick="document.getElementById('analysisDialog').close()">Schließen</button></div><div id="analysisContent"></div></dialog>
+<dialog id="cloudAuthDialog" class="voc-dialog"><h3>Supabase-Anmeldung</h3><label>E-Mail</label><input id="authEmail" type="email" autocomplete="username"><label>Passwort</label><input id="authPassword" type="password" autocomplete="current-password"><p id="cloudAuthStatus"></p><div class="dialog-buttons"><button type="button" onclick="loginVocprog()">Anmelden</button><button type="button" onclick="document.getElementById('cloudAuthDialog').close()">Schließen</button></div></dialog>
+<div class="voc-footer"><span id="connectionStatus">Online · Sync: noch nie · nur lokal</span><div><button type="button" onclick="showCloudLogin()">Cloud-Login</button><button type="button" onclick="syncVocprog()">Sync</button><button type="button" onclick="logoutVocprog()">Logout</button></div><small>Testversion 0.2 · 05.11.2026</small></div>
+<script src="vocprog-enhancements.js"></script>
+</body>
+</html>
