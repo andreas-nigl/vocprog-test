@@ -1,4 +1,4 @@
-const CACHE="vocprog-staging-20261106-v2";
+const CACHE="vocprog-staging-20261106-v3";
 const ASSETS=["./","./index.html","./manifest.json","./vocprog-enhancements.js","./vocprog-enhancements.css","./favicon.svg"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
@@ -10,5 +10,13 @@ self.addEventListener("fetch",event=>{
  const url=new URL(event.request.url);
  if(event.request.method!=="GET"||url.origin!==self.location.origin)return;
  // Never cache API responses, personal data, or dynamically created images.
- event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request)));
+ event.respondWith(
+   fetch(event.request).then(response=>{
+     if(response.ok&&ASSETS.some(asset=>new URL(asset,self.registration.scope).href===url.href)){
+       const copy=response.clone();
+       caches.open(CACHE).then(cache=>cache.put(event.request,copy));
+     }
+     return response;
+   }).catch(()=>caches.match(event.request))
+ );
 });
