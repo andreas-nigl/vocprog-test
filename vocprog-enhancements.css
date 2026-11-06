@@ -5,12 +5,13 @@
   border:0;border-bottom:1px solid var(--info-border);border-radius:0;background:transparent;font-weight:500;}
 .book-line:last-child{border-bottom:0}
 .book-line:hover{background:rgba(30,100,220,.07)}
-.profile-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.profile-row select{width:auto;min-width:120px;margin:0}
-.answer-entry{display:flex;align-items:center;gap:8px}
+.profile-row{display:flex;flex-direction:column;align-items:stretch;gap:5px;margin:0 0 12px}
+.profile-row label{font-weight:600;font-size:.85rem;margin:0}
+.profile-row select{display:block;width:100%;min-width:0;margin:0}
+.answer-entry{display:flex;align-items:center;gap:8px;margin-bottom:-5px}
 .answer-entry input{margin:0;min-width:0;flex:1}
-.answer-entry button{flex:0 0 40px}
-#answerFeedback{min-height:1.2em;font-size:.8rem}
+.answer-entry button{flex:0 0 40px;transform:translateY(-5px)}
+#answerFeedback{min-height:20px;font-size:.8rem;display:flex;align-items:center;line-height:1.2;margin-bottom:-6px}
 .answer-correct{border-color:#16a34a!important;background:#dcfce7!important;color:#14532d!important}
 .answer-wrong{border-color:#dc2626!important;background:#fee2e2!important;color:#7f1d1d!important}
 .analysis-float-zone{position:fixed;right:20px;bottom:20px;z-index:50;display:flex;justify-content:flex-end;pointer-events:none}
@@ -40,3 +41,13 @@ button:disabled{opacity:.4;cursor:not-allowed}
 @media(max-width:460px){.dialog-buttons{flex-direction:column}.profile-row{flex-wrap:wrap}}
 
 @media(max-width:640px){.analysis-float-zone{position:static;max-width:480px;width:calc(100% - 32px);margin:10px auto 0;min-height:52px;align-items:center}.analysis-open{margin-left:auto}.voc-footer{margin-top:8px}}
+
+/* Trainer rows: right-hand audio and microphone controls share the same x-position. */
+#trainerCard{gap:10px}
+#trainerCard .item-row{gap:8px}
+#trainerCard .item-row>.icon-btn,#trainerCard .answer-entry>.icon-btn,
+#trainerCard .target-box .icon-btn{flex:0 0 40px;width:40px;height:40px;min-width:40px}
+#trainerCard .target-box{padding:8px 0 8px 10px;min-height:52px;gap:5px}
+#trainerCard .target-box>div:last-child{flex:0 0 40px;gap:0!important}
+#trainerCard #answerInput{height:42px;box-sizing:border-box}
+#trainerCard #refText{margin-top:-4px}
