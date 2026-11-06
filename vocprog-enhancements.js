@@ -13,7 +13,7 @@
   let books = read(STORE+"_books",[]);
   let specials = read(STORE+"_special",[]);
   let history = read(STORE+"_events",[]);
-  let currentProfile = localStorage.getItem(STORE+"_profile") || "Andreas";
+  let currentProfile = localStorage.getItem(STORE+"_profile") || "Niklas";
   let chosenBook = localStorage.getItem(STORE+"_book") || "";
   let chosenForScan = "";
   let lastSync = localStorage.getItem(STORE+"_synced") || "";
@@ -98,7 +98,7 @@
     if(!books.length){el.textContent="Vorhandene Bücher: Keine Daten vorhanden";return;}
     books.forEach(b=>{
       const line=document.createElement("button");
-      line.type="button";line.className="book-line";line.textContent=bookText(b)+" ✎";
+      line.type="button";line.className="book-line";line.textContent=bookText(b);
       line.title="Buch umbenennen";line.onclick=()=>{
         const next=prompt("Buchname bearbeiten:",b.name);
         if(next===null)return;
@@ -131,7 +131,7 @@
     books.push(b);persistMetadata();refreshBookChoices();return b;
   }
   window.openBookPicker=function(source){
-    if(!navigator.onLine)return;
+    if(!navigator.onLine){get("scanStatus").textContent="Kamera und Galerie sind für neue Scans nur online verfügbar.";return;}
     const modal=get("bookPicker");
     const dropdown=get("pickerBook");
     dropdown.innerHTML="";
@@ -139,8 +139,9 @@
     dropdown.add(new Option("＋ Neues Buch anlegen","__new__"));
     dropdown.value=chosenBook||"__new__";
     get("pickerNewName").value="";
-    get("pickerNewName").hidden=dropdown.value!=="__new__";
-    dropdown.onchange=()=>get("pickerNewName").hidden=dropdown.value!=="__new__";
+    get("pickerNewFields").hidden=dropdown.value!=="__new__";
+    dropdown.onchange=()=>get("pickerNewFields").hidden=dropdown.value!=="__new__";
+    get("pickerNewLanguage").value=get("targetLang").value;
     chosenForScan=source;
     modal.showModal();
   };
@@ -150,7 +151,7 @@
     if(dropdown.value==="__new__"){
       const name=get("pickerNewName").value.trim();
       if(!name)return alert("Bitte einen Buchnamen eingeben.");
-      b=addBook(get("targetLang").value,name);
+      b=addBook(get("pickerNewLanguage").value,name);
     }
     if(!b)return;
     chooseBook(b.id);
@@ -159,12 +160,8 @@
   };
   window.pickLearningBook=function(){chooseBook(get("bookSelect").value)};
   window.setLearningProfile=function(v){
-    currentProfile=v;persistMetadata();get("profilePicker").value=v;renderProfileStatus();
+    currentProfile=v;persistMetadata();get("profilePicker").value=v;
   };
-  function renderProfileStatus(){
-    get("profileStatus").textContent="Lernprofil: "+currentProfile;
-    const sel=get("profilePicker");if(sel)sel.value=currentProfile;
-  }
 
   const oldLoad=loadFromLocalStorage;
   loadFromLocalStorage=function(){
@@ -484,7 +481,7 @@
     const res=await fetch(DB_URL+"/auth/v1/token?grant_type=refresh_token",{
       method:"POST",headers:{"apikey":PUB_KEY,"Content-Type":"application/json"},
       body:JSON.stringify({refresh_token:auth.refresh_token})});
-    if(!res.ok){auth=null;localStorage.removeItem(STORE+"_auth");return false;}
+    if(!res.ok){auth=null;localStorage.removeItem(STORE+"_auth");renderStatus();return false;}
     auth=await res.json();auth.expires_at=Math.floor(Date.now()/1000)+(auth.expires_in||3600);save(STORE+"_auth",auth);return true;
   }
   async function login(email,password){
@@ -502,10 +499,7 @@
     catch(e){label.textContent=e.message;}
     renderStatus();
   };
-  window.logoutVocprog=function(){
-    auth=null;localStorage.removeItem(STORE+"_auth");renderStatus();
-  };
-  window.showCloudLogin=function(){get("cloudAuthDialog").showModal();};
+    window.showCloudLogin=function(){get("cloudAuthDialog").showModal();};
   function records(){
     const items=[];
     for(const b of books)items.push({record_id:"book:"+b.id,record_type:"book",payload:b,updated_at:b.updatedAt});
@@ -580,13 +574,14 @@
   }
   function renderStatus(){
     const stamp=lastSync?new Date(lastSync).toLocaleString("de-DE"):"noch nie";
-    const cloud=auth?.access_token?(syncing?" · Synchronisiere …":" · Cloud angemeldet"):" · nur lokal";
-    get("connectionStatus").textContent=(navigator.onLine?"Online":"Offline")+" · Sync: "+stamp+cloud;
+    const connected=!!auth?.access_token;
+    const cloud=connected?(syncing?" · Synchronisierung läuft":" · Cloud verbunden"):" · Cloud noch nicht verbunden";
+    get("connectionStatus").textContent=(navigator.onLine?"Online":"Offline")+" · Letzte Synchronisation: "+stamp+cloud;
+    get("connectCloudBtn").hidden=connected;
   }
   function onReady(){
     ensureMigration();
     get("profilePicker").value=currentProfile;
-    renderProfileStatus();
     if(chosenBook)chooseBook(chosenBook);else refreshBookChoices();
     updateOnlineState();
     tempImages().then(images=>{
