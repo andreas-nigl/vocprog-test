@@ -117,11 +117,10 @@
 
 <div class="container">
   <div class="card" id="configCard">
-    <h2>1. Google Gemini API & Sprache</h2>
+    <h2>1. API</h2>
     <label>Dein API Key (wird lokal gespeichert)</label>
     <input type="password" id="apiKey" placeholder="AIzaSy...">
-    <label>Fremdsprache</label>
-    <select id="targetLang" onchange="onLanguageChange()">
+    <select id="targetLang" hidden aria-label="Aktuelle Fremdsprache">
       <option value="en-US">Englisch</option>
       <option value="fr-FR">Französisch</option>
       <option value="es-ES">Spanisch</option>
@@ -131,10 +130,9 @@
     </select>
   </div>
 
-  <div class="card" id="profileCard"><div class="profile-row"><span id="profileStatus">Lernprofil</span><select id="profilePicker" onchange="setLearningProfile(this.value)"><option>Andreas</option><option>Niklas</option></select></div></div>
-
   <div class="card" id="scanCard">
-    <h2>2. Buchseiten & Datenverwaltung</h2>
+    <h2>2. Datenverwaltung</h2>
+    <div class="profile-row"><label for="profilePicker">Nutzer</label><select id="profilePicker" onchange="setLearningProfile(this.value)"><option value="Niklas">Niklas</option><option value="Andreas">Andreas</option></select></div>
     
     <div class="status-badge" id="scannedPagesBadge">
       📖 Vorhandene Seiten: Keinen Speicherstand gefunden
@@ -145,11 +143,11 @@
     
     <div class="btn-group" style="margin-bottom: 12px;">
       <div class="file-btn-wrapper">
-        <button type="button" id="cameraPickerBtn" onclick="openBookPicker(\'camera\')">📸 Kamera</button>
+        <button type="button" id="cameraPickerBtn" onclick="openBookPicker('camera')">📸 Kamera</button>
         <input type="file" hidden id="cameraInput" accept="image/*" capture="environment">
       </div>
       <div class="file-btn-wrapper">
-        <button type="button" id="galleryPickerBtn" onclick="openBookPicker(\'gallery\')">📂 Galerie</button>
+        <button type="button" id="galleryPickerBtn" onclick="openBookPicker('gallery')">📂 Galerie</button>
         <input type="file" hidden id="galleryInput" accept="image/*" multiple>
       </div>
     </div>
@@ -179,7 +177,7 @@
   </div>
 
   <div class="card hidden" id="rangeCard">
-    <h2>3. Lernbereich & Modus</h2>
+    <h2>3. Lernbereich</h2>
     
     <label>Verfügbare Bücher</label>
     <select id="bookSelect" onchange="pickLearningBook()"></select>
@@ -894,11 +892,11 @@
 
 <dialog id="bookPicker" class="voc-dialog"><h3>Buch für neue Seiten auswählen</h3>
 <label>Vorhandenes Buch</label><select id="pickerBook"></select>
-<input id="pickerNewName" placeholder="Neuen Buchnamen eingeben" hidden>
+<div id="pickerNewFields" hidden><input id="pickerNewName" placeholder="Neuen Buchnamen eingeben"><label for="pickerNewLanguage">Fremdsprache des neuen Buches</label><select id="pickerNewLanguage"><option value="en-US">Englisch</option><option value="fr-FR">Französisch</option><option value="es-ES">Spanisch</option><option value="la-LA">Lateinisch</option><option value="pt-PT">Portugiesisch</option><option value="nl-NL">Niederländisch</option></select></div>
 <div class="dialog-buttons"><button type="button" onclick="commitBookPicker()">Weiter</button><button type="button" onclick="document.getElementById('bookPicker').close()">Abbrechen</button></div></dialog>
 <dialog id="analysisDialog" class="voc-dialog wide"><div class="dialog-head"><h2>Lernanalyse</h2><button type="button" onclick="document.getElementById('analysisDialog').close()">Schließen</button></div><div id="analysisContent"></div></dialog>
 <dialog id="cloudAuthDialog" class="voc-dialog"><h3>Supabase-Anmeldung</h3><label>E-Mail</label><input id="authEmail" type="email" autocomplete="username"><label>Passwort</label><input id="authPassword" type="password" autocomplete="current-password"><p id="cloudAuthStatus"></p><div class="dialog-buttons"><button type="button" onclick="loginVocprog()">Anmelden</button><button type="button" onclick="document.getElementById('cloudAuthDialog').close()">Schließen</button></div></dialog>
-<div class="voc-footer"><span id="connectionStatus">Online · Sync: noch nie · nur lokal</span><div><button type="button" onclick="showCloudLogin()">Cloud-Login</button><button type="button" onclick="syncVocprog()">Sync</button><button type="button" onclick="logoutVocprog()">Logout</button></div><small>Testversion 0.2 · 05.11.2026</small></div>
+<div class="voc-footer"><span id="connectionStatus">Online · Letzte Synchronisation: noch nie</span><button type="button" id="connectCloudBtn" hidden onclick="showCloudLogin()">Cloud erstmalig verbinden</button><small>Testversion 0.2 · 06.11.2026</small></div>
 <script src="vocprog-enhancements.js"></script>
 </body>
 </html>
