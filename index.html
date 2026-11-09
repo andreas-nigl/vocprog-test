@@ -134,6 +134,8 @@
     <h2>2. Datenverwaltung</h2>
     <div class="profile-row"><label for="profilePicker">Nutzer</label><select id="profilePicker" onchange="setLearningProfile(this.value)"><option value="Niklas">Niklas</option><option value="Andreas">Andreas</option></select></div>
     
+    <label for="bookSelect">Buch</label>
+    <div class="book-manager"><select id="bookSelect" onchange="pickLearningBook()"></select><button type="button" id="renameBookBtn" title="Buch umbenennen" aria-label="Buch umbenennen" onclick="renameSelectedBook()">✎</button><button type="button" class="book-delete" id="deleteBookBtn" title="Buch löschen" aria-label="Buch löschen" onclick="confirmSelectedBookDeletion()">×</button></div>
     <div class="status-badge" id="scannedPagesBadge">
       📖 Vorhandene Seiten: Keinen Speicherstand gefunden
     </div>
@@ -173,14 +175,12 @@
 
     <hr style="border: none; border-top: 1px solid var(--border); margin: 12px 0;">
 
-    <button class="danger" style="margin-bottom: 0; font-size: 0.85rem; padding: 10px;" onclick="clearCurrentLangData()">🗑️ Speicher für aktuelle Sprache löschen</button>
+
   </div>
 
   <div class="card hidden" id="rangeCard">
     <h2>3. Lernbereich</h2>
     
-    <label>Verfügbare Bücher</label>
-    <select id="bookSelect" onchange="pickLearningBook()"></select>
     <input type="hidden" id="pageRangeInput" oninput="filterVocabByPages()">
     
     <label>Erste Vokabel (Start)</label>
@@ -227,11 +227,11 @@
     <div id="refText"></div>
     <div class="nav-controls">
       <button class="secondary" onclick="prevCard()">Zurück</button>
-      <button onclick="nextCard()">Weiter</button>
+      <button onclick="advanceOrGrade()">Weiter</button>
     </div>
   </div>
 </div>
-<div class="analysis-float-zone" role="group" aria-label="Auswertung"><button type="button" id="analysisOpenBtn" class="analysis-open" onclick="showLearningAnalysis()" title="Lernanalyse öffnen" aria-label="Lernanalyse öffnen"><svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-8M22 20H2"/></svg></button></div>
+
 
 <script>
   let rawImages = [];
@@ -414,9 +414,10 @@
       let newVocabs = parsedResponse.items || parsedResponse;
       if (!Array.isArray(newVocabs) && parsedResponse.items) newVocabs = parsedResponse.items;
 
-      if (parsedResponse.detected_language_code && parsedResponse.detected_language_code !== targetLangSelect.value) {
-        throw new Error("Die erkannte Sprache stimmt nicht mit dem ausgewählten Buch überein. Bilder bleiben für eine erneute Zuordnung erhalten.");
+      if (!parsedResponse.detected_language_code) {
+        throw new Error("Die Fremdsprache konnte nicht sicher erkannt werden. Scanbilder bleiben erhalten.");
       }
+      acceptScannedLanguage(parsedResponse.detected_language_code);
 
       let addedCount = mergeVocabularies(newVocabs);
 
@@ -891,12 +892,13 @@
 </script>
 
 <dialog id="bookPicker" class="voc-dialog"><h3>Buch für neue Seiten auswählen</h3>
-<label>Vorhandenes Buch</label><select id="pickerBook"></select>
-<div id="pickerNewFields" hidden><input id="pickerNewName" placeholder="Neuen Buchnamen eingeben"><label for="pickerNewLanguage">Fremdsprache des neuen Buches</label><select id="pickerNewLanguage"><option value="en-US">Englisch</option><option value="fr-FR">Französisch</option><option value="es-ES">Spanisch</option><option value="la-LA">Lateinisch</option><option value="pt-PT">Portugiesisch</option><option value="nl-NL">Niederländisch</option></select></div>
+<label for="pickerBook">Vorhandenes oder neues Buch</label><select id="pickerBook"></select>
+<div id="pickerNewFields" hidden><label for="pickerNewName">Neuer Buchname</label><input id="pickerNewName" value="Muster" placeholder="Muster"><small>Die Sprache wird beim ersten erfolgreichen Scan automatisch erkannt.</small></div>
 <div class="dialog-buttons"><button type="button" onclick="commitBookPicker()">Weiter</button><button type="button" onclick="document.getElementById('bookPicker').close()">Abbrechen</button></div></dialog>
 <dialog id="analysisDialog" class="voc-dialog wide"><div class="dialog-head"><h2>Lernanalyse</h2><button type="button" onclick="document.getElementById('analysisDialog').close()">Schließen</button></div><div id="analysisContent"></div></dialog>
 <dialog id="cloudAuthDialog" class="voc-dialog"><h3>Supabase-Anmeldung</h3><label>E-Mail</label><input id="authEmail" type="email" autocomplete="username"><label>Passwort</label><input id="authPassword" type="password" autocomplete="current-password"><p id="cloudAuthStatus"></p><div class="dialog-buttons"><button type="button" onclick="loginVocprog()">Anmelden</button><button type="button" onclick="document.getElementById('cloudAuthDialog').close()">Schließen</button></div></dialog>
-<div class="voc-footer"><span id="connectionStatus">Online · Letzte Synchronisation: noch nie</span><button type="button" id="connectCloudBtn" hidden onclick="showCloudLogin()">Cloud erstmalig verbinden</button><small>Testversion 0.2 · 06.11.2026</small></div>
+<div class="voc-footer"><span id="connectionStatus">Online · Sync –</span><button type="button" id="connectCloudBtn" hidden onclick="showCloudLogin()">Erstmalig anmelden</button><small>Testversion 0.3 · 09.11.26</small></div>
+<div class="analysis-float-zone" role="group" aria-label="Auswertung"><button type="button" id="analysisOpenBtn" class="analysis-open" onclick="showLearningAnalysis()" title="Lernanalyse öffnen" aria-label="Lernanalyse öffnen"><svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-8M22 20H2"/></svg></button></div>
 <script src="vocprog-enhancements.js"></script>
 </body>
 </html>
