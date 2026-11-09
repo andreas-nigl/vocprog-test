@@ -13,6 +13,7 @@
   let books = read(STORE+"_books",[]);
   let specials = read(STORE+"_special",[]);
   let history = read(STORE+"_events",[]);
+  let tombstones = read(STORE+"_tombstones",[]);
   let currentProfile = localStorage.getItem(STORE+"_profile") || "Niklas";
   let chosenBook = localStorage.getItem(STORE+"_book") || "";
   let chosenForScan = "";
@@ -76,7 +77,7 @@
     localStorage.setItem(STORE+"_book",chosenBook);
   }
   function persistMetadata(){
-    save(STORE+"_books",books);save(STORE+"_special",specials);save(STORE+"_events",history);
+    save(STORE+"_books",books);save(STORE+"_special",specials);save(STORE+"_events",history);save(STORE+"_tombstones",tombstones);
     localStorage.setItem(STORE+"_profile",currentProfile);
     localStorage.setItem(STORE+"_book",chosenBook);
     scheduleSync();
@@ -94,40 +95,74 @@
   }
   function renderBooks(){
     const el=get("scannedPagesBadge");if(!el)return;
-    el.innerHTML="";
-    if(!books.length){el.textContent="Vorhandene Bücher: Keine Daten vorhanden";return;}
-    books.forEach(b=>{
-      const line=document.createElement("button");
-      line.type="button";line.className="book-line";line.textContent=bookText(b);
-      line.title="Buch umbenennen";line.onclick=()=>{
-        const next=prompt("Buchname bearbeiten:",b.name);
-        if(next===null)return;
-        if(!next.trim())return alert("Ein Buchname ist erforderlich.");
-        b.name=next.trim();b.updatedAt=new Date().toISOString();persistMetadata();refreshBookChoices();
-      };
-      el.appendChild(line);
-    });
+    const selected=books.find(b=>b.id===chosenBook);
+    el.textContent=selected?bookText(selected):"Noch kein Buch vorhanden";
+    get("renameBookBtn").disabled=!selected;
+    get("deleteBookBtn").disabled=!selected;
   }
   function refreshBookChoices(){
-    renderBooks();
     const select=get("bookSelect");if(!select)return;
-    select.innerHTML="";
-    books.forEach(b=>select.add(new Option(bookText(b),b.id)));
-    if(!chosenBook||!books.some(b=>b.id===chosenBook)) chosenBook=books[0]?.id||"";
-    select.value=chosenBook;
+    select.replaceChildren();
+    for(const b of books)select.add(new Option(bookText(b),b.id));
+    if(!books.some(b=>b.id===chosenBook))chosenBook=books[0]?.id||"";
+    if(chosenBook)select.value=chosenBook;
+    renderBooks();
   }
+  window.renameSelectedBook=function(){
+    const b=books.find(x=>x.id===chosenBook);if(!b)return;
+    const name=prompt("Neuer Buchname:",b.name);
+    if(name===null)return;
+    if(!name.trim())return alert("Ein Buchname darf nicht leer sein.");
+    b.name=name.trim();b.updatedAt=new Date().toISOString();
+    persistMetadata();refreshBookChoices();
+  };
+  function markDeleted(type,entity,date){
+    const key=type+":"+entity.id;
+    const i=tombstones.findIndex(t=>t.record_id===key);
+    const obj={record_id:key,record_type:type,payload:{id:entity.id,deleted:true,updatedAt:date},updated_at:date};
+    if(i>=0)tombstones[i]=obj;else tombstones.push(obj);
+  }
+  function removeBookLocally(bookId,date){
+    const book=books.find(b=>b.id===bookId);
+    if(!book)return;
+    markDeleted("book",book,date);
+    books=books.filter(x=>x.id!==bookId);
+    for(const key of Object.keys(localStorage).filter(k=>k.startsWith("vocab_trainer_data_"))){
+      const arr=read(key,[]);
+      for(const v of arr.filter(x=>x.bookId===bookId))markDeleted("vocab",v,date);
+      save(key,arr.filter(x=>x.bookId!==bookId));
+    }
+    for(const v of specials.filter(x=>x.bookId===bookId))markDeleted("special",v,date);
+    for(const v of history.filter(x=>x.bookId===bookId))markDeleted("event",v,date);
+    specials=specials.filter(x=>x.bookId!==bookId);
+    history=history.filter(x=>x.bookId!==bookId);
+    chosenBook=books[0]?.id||"";
+    persistMetadata();
+    if(chosenBook)chooseBook(chosenBook);
+    else {vocabList=[];filteredVocabList=[];get("rangeCard").classList.add("hidden");refreshBookChoices();}
+  }
+  window.confirmSelectedBookDeletion=function(){
+    const book=books.find(b=>b.id===chosenBook);if(!book)return;
+    const count=allVocab().filter(x=>x.bookId===book.id).length;
+    const msg="Buch „"+book.name+"“ endgültig löschen?\\n\\n"+
+      count+" Vokabeln sowie alle zugehörigen Beispielsätze, KI-Sätze und Lernstatistiken "+
+      "werden lokal entfernt und bei der nächsten erfolgreichen Synchronisation auch "+
+      "auf anderen verbundenen Geräten gelöscht. Dieser Vorgang kann nur mit einer "+
+      "vorher exportierten Datensicherung rückgängig gemacht werden.";
+    if(!confirm(msg))return;
+    removeBookLocally(book.id,new Date().toISOString());
+  };
   function chooseBook(bookId, refresh=true){
     const book=books.find(b=>b.id===bookId);if(!book)return;
     chosenBook=book.id;
     localStorage.setItem(STORE+"_book",book.id);
-    get("targetLang").value=book.lang;
-    localStorage.setItem("vocab_trainer_current_lang",book.lang);
+    if(book.lang){get("targetLang").value=book.lang;localStorage.setItem("vocab_trainer_current_lang",book.lang);}
     if(refresh) loadFromLocalStorage();
     refreshBookChoices();
   }
   function addBook(lang,name){
     if(!name?.trim())return null;
-    const b={id:id(),name:name.trim(),lang:lang||get("targetLang").value,updatedAt:new Date().toISOString()};
+    const b={id:id(),name:name.trim(),lang:lang||"",updatedAt:new Date().toISOString()};
     books.push(b);persistMetadata();refreshBookChoices();return b;
   }
   window.openBookPicker=function(source){
@@ -138,10 +173,9 @@
     books.forEach(b=>dropdown.add(new Option(bookText(b),b.id)));
     dropdown.add(new Option("＋ Neues Buch anlegen","__new__"));
     dropdown.value=chosenBook||"__new__";
-    get("pickerNewName").value="";
+    get("pickerNewName").value="Muster";
     get("pickerNewFields").hidden=dropdown.value!=="__new__";
     dropdown.onchange=()=>get("pickerNewFields").hidden=dropdown.value!=="__new__";
-    get("pickerNewLanguage").value=get("targetLang").value;
     chosenForScan=source;
     modal.showModal();
   };
@@ -151,12 +185,23 @@
     if(dropdown.value==="__new__"){
       const name=get("pickerNewName").value.trim();
       if(!name)return alert("Bitte einen Buchnamen eingeben.");
-      b=addBook(get("pickerNewLanguage").value,name);
+      b=addBook("",name);
     }
     if(!b)return;
     chooseBook(b.id);
     get("bookPicker").close();
     get(chosenForScan==="camera"?"cameraInput":"galleryInput").click();
+  };
+  window.acceptScannedLanguage=function(language){
+    if(!Object.prototype.hasOwnProperty.call(LANGS,language))throw Error("Unbekannte oder nicht unterstützte Sprache: "+language);
+    const b=books.find(x=>x.id===chosenBook);
+    if(!b)throw Error("Vor dem Scannen bitte ein Buch auswählen.");
+    if(b.lang&&b.lang!==language)throw Error("Buch „"+b.name+"“ enthält bereits "+(LANGS[b.lang]||b.lang)+". Die neu erkannten Seiten sind "+LANGS[language]+". Bitte ein eigenes Buch anlegen.");
+    if(!b.lang){b.lang=language;b.updatedAt=new Date().toISOString();persistMetadata();}
+    get("targetLang").value=language;
+    localStorage.setItem("vocab_trainer_current_lang",language);
+    loadFromLocalStorage();
+    refreshBookChoices();
   };
   window.pickLearningBook=function(){chooseBook(get("bookSelect").value)};
   window.setLearningProfile=function(v){
@@ -325,18 +370,24 @@
     input.value="";input.className="";feedback.textContent="";
     const item=trainingItems[currentIndex];
     lastShownEvent=logEvent("shown",item);
-    setTimeout(()=>input.focus(),0);
+    document.body.classList.add("voc-training-active");
+    if(window.matchMedia("(min-width: 641px) and (pointer: fine)").matches)setTimeout(()=>input.focus(),0);
   };
   function simplified(text){
     return cleanSpokenText(text).normalize("NFKC").toLocaleLowerCase()
       .replace(/[.!?,;:]/g,"").replace(/\s+/g," ").trim();
   }
   window.checkTypedAnswer=function(e){
-    if(e.key!=="Enter")return;
+    if(e.key!=="Enter"||e.isComposing)return;
     e.preventDefault();
+    if(analyzedThisCard||!get("answerInput").value.trim()){nextCard();return;}
+    window.gradeCurrentAnswer();
+  };
+  window.gradeCurrentAnswer=function(){
+    if(analyzedThisCard)return;
     const input=get("answerInput"),item=trainingItems[currentIndex];
     const given=input.value.trim();
-    if(!given||analyzedThisCard)return;
+    if(!given)return;
     const alternatives=String(item.target||"").split(/\s*(?:\/|;|\bor\b)\s*/i);
     const correct=alternatives.some(s=>simplified(s)===simplified(given));
     analyzedThisCard=true;
@@ -344,6 +395,24 @@
     get("answerFeedback").textContent=correct?"Richtig":"Nicht richtig – Lösung aufgedeckt";
     get("targetText").classList.remove("masked");
     logEvent("graded",item,{correct,answer:given});
+  };
+  window.advanceOrGrade=function(){
+    const input=get("answerInput");
+    if(!analyzedThisCard&&input.value.trim()){window.gradeCurrentAnswer();return;}
+    nextCard();
+  };
+  const originalNextCard=nextCard;
+  nextCard=function(){
+    if(!analyzedThisCard&&get("answerInput").value.trim()){
+      window.gradeCurrentAnswer();
+      return;
+    }
+    originalNextCard();
+  };
+  const originalExitTrainer=exitTrainer;
+  exitTrainer=function(){
+    originalExitTrainer();
+    document.body.classList.remove("voc-training-active");
   };
   // Original nextCard and prevCard invoke showCard, which logs every displayed question.
   const oldStart=startTraining;
@@ -380,7 +449,7 @@
   const oldExport=exportDataToFile;
   exportDataToFile=function(){
     const data={schemaVersion:2,exportedAt:new Date().toISOString(),
-      books, vocabulary:allVocab(),specialSentences:specials,practiceEvents:history};
+      books, vocabulary:allVocab(),specialSentences:specials,practiceEvents:history,deletedRecords:tombstones};
     const file=new Blob([JSON.stringify(data,null,2)],{type:"text/plain;charset=utf-8"});
     const url=URL.createObjectURL(file),a=document.createElement("a");
     const d=new Date(),pad=n=>String(n).padStart(2,"0");
@@ -412,6 +481,10 @@
       for(const x of data.specialSentences||[])if(!specialIds.has(x.id))specials.push(x);
       const eventIds=new Set(history.map(x=>x.id));
       for(const x of data.practiceEvents||[])if(!eventIds.has(x.id))history.push(x);
+      for(const t of data.deletedRecords||[]){
+        if(!t.record_id||!t.payload?.deleted)continue;
+        if(!tombstones.some(x=>x.record_id===t.record_id))tombstones.push(t);
+      }
       persistMetadata();chooseBook(chosenBook);alert("Vollständige Sicherung eingelesen.");
     }).catch(e=>alert("Import fehlgeschlagen: "+e.message)).finally(()=>{ev.target.value="";});
   };
@@ -506,6 +579,7 @@
     for(const v of allVocab())items.push({record_id:"vocab:"+v.id,record_type:"vocab",payload:v,updated_at:v.updatedAt});
     for(const x of specials)items.push({record_id:"special:"+x.id,record_type:"special",payload:x,updated_at:x.updatedAt});
     for(const x of history)items.push({record_id:"event:"+x.id,record_type:"event",payload:x,updated_at:x.at});
+    for(const t of tombstones)items.push(t);
     return items;
   }
   const newer=(left,right)=>Date.parse(left||0)>Date.parse(right||0);
@@ -516,6 +590,28 @@
       const old=local.get(row.record_id);
       if(old&&!newer(row.updated_at,old.updated_at))continue;
       const payload=row.payload;
+      if(payload?.deleted===true){
+        const oldDelete=tombstones.find(t=>t.record_id===row.record_id);
+        if(!oldDelete||newer(row.updated_at,oldDelete.updated_at)){
+          tombstones=tombstones.filter(t=>t.record_id!==row.record_id);
+          tombstones.push(row);
+        }
+        if(row.record_type==="book"){
+          books=books.filter(b=>b.id!==payload.id);
+        }else if(row.record_type==="vocab"){
+          for(const key of Object.keys(localStorage).filter(k=>k.startsWith("vocab_trainer_data_"))){
+            save(key,read(key,[]).filter(x=>x.id!==payload.id));
+          }
+        }else if(row.record_type==="special"){
+          specials=specials.filter(x=>x.id!==payload.id);
+        }else if(row.record_type==="event"){
+          history=history.filter(x=>x.id!==payload.id);
+        }
+        changed=true;
+        continue;
+      }
+      const deletedBookIds=new Set(tombstones.filter(t=>t.record_type==="book").map(t=>t.payload.id));
+      if(deletedBookIds.has(payload.bookId)||deletedBookIds.has(payload.id))continue;
       if(row.record_type==="book"){
         const i=books.findIndex(x=>x.id===payload.id);
         if(i>=0)books[i]=payload;else books.push(payload);
@@ -533,7 +629,7 @@
       }
       changed=true;
     }
-    if(changed){save(STORE+"_books",books);save(STORE+"_special",specials);save(STORE+"_events",history);loadFromLocalStorage();}
+    if(changed){save(STORE+"_books",books);save(STORE+"_special",specials);save(STORE+"_events",history);save(STORE+"_tombstones",tombstones);loadFromLocalStorage();}
   }
   async function authFetch(path,options={}){
     if(auth?.expires_at&&auth.expires_at<Math.floor(Date.now()/1000)+60)await refreshToken();
@@ -573,13 +669,16 @@
     clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,1300);
   }
   function renderStatus(){
-    const stamp=lastSync?new Date(lastSync).toLocaleString("de-DE"):"noch nie";
+    const time=lastSync?new Date(lastSync):null;
+    const stamp=time&&!isNaN(time.getTime())?
+      new Intl.DateTimeFormat("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(time):"–";
     const connected=!!auth?.access_token;
     const cloud=connected?(syncing?" · Synchronisierung läuft":" · Cloud verbunden"):" · Cloud noch nicht verbunden";
-    get("connectionStatus").textContent=(navigator.onLine?"Online":"Offline")+" · Letzte Synchronisation: "+stamp+cloud;
+    get("connectionStatus").textContent=(navigator.onLine?"Online":"Offline")+" · Sync "+stamp+cloud;
     get("connectCloudBtn").hidden=connected;
   }
   function onReady(){
+    document.body.classList.remove("voc-training-active");
     ensureMigration();
     get("profilePicker").value=currentProfile;
     if(chosenBook)chooseBook(chosenBook);else refreshBookChoices();
