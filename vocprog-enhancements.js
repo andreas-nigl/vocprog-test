@@ -91,7 +91,7 @@
   }
   function bookText(b){
     const v=allVocab().filter(x=>x.bookId===b.id);
-    return b.name+" ("+(LANGS[b.lang]||b.lang)+"): S. "+ranges(v.map(x=>x.page));
+    return b.name+" ("+(LANGS[b.lang]||"Sprache noch nicht erkannt")+")"+(v.length?": S. "+ranges(v.map(x=>x.page)):"");
   }
   function renderBooks(){
     const el=get("scannedPagesBadge");if(!el)return;
@@ -144,7 +144,7 @@
   window.confirmSelectedBookDeletion=function(){
     const book=books.find(b=>b.id===chosenBook);if(!book)return;
     const count=allVocab().filter(x=>x.bookId===book.id).length;
-    const msg="Buch „"+book.name+"“ endgültig löschen?\\n\\n"+
+    const msg="Buch „"+book.name+"“ endgültig löschen?\n\n"+
       count+" Vokabeln sowie alle zugehörigen Beispielsätze, KI-Sätze und Lernstatistiken "+
       "werden lokal entfernt und bei der nächsten erfolgreichen Synchronisation auch "+
       "auf anderen verbundenen Geräten gelöscht. Dieser Vorgang kann nur mit einer "+
@@ -629,7 +629,13 @@
       }
       changed=true;
     }
-    if(changed){save(STORE+"_books",books);save(STORE+"_special",specials);save(STORE+"_events",history);save(STORE+"_tombstones",tombstones);loadFromLocalStorage();}
+    if(changed){
+      save(STORE+"_books",books);save(STORE+"_special",specials);
+      save(STORE+"_events",history);save(STORE+"_tombstones",tombstones);
+      if(!books.some(b=>b.id===chosenBook))chosenBook=books[0]?.id||"";
+      if(chosenBook)chooseBook(chosenBook);
+      else {vocabList=[];filteredVocabList=[];get("rangeCard").classList.add("hidden");refreshBookChoices();}
+    }
   }
   async function authFetch(path,options={}){
     if(auth?.expires_at&&auth.expires_at<Math.floor(Date.now()/1000)+60)await refreshToken();
