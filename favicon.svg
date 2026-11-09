@@ -1,1 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#173e78"/><path d="M10 35h44v19H10z" fill="#cf8228" stroke="#fbe0a0" stroke-width="2"/><path d="M13 29h38l4 8H9z" fill="#efa93f" stroke="#fbd588" stroke-width="1.5"/><path d="M19 20h26v12H19z" fill="#e6f2ff"/><path d="M16 16h32v7H16z" fill="#fff"/><rect x="6" y="4" width="52" height="19" rx="5" fill="#173e78"/><text x="32" y="19" font-family="Arial,sans-serif" font-weight="bold" font-size="19" fill="white" text-anchor="middle">VOC</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+<rect width="128" height="128" rx="20" fill="#ffffff"/>
+<path d="M24 98 13 116l5-30C10 77 7 66 7 54 7 25 31 12 65 12c35 0 57 18 57 47s-26 48-61 48c-13 0-25-3-37-9Z" fill="#ffffff" stroke="#0647f4" stroke-width="8" stroke-linejoin="round"/>
+<text x="65" y="72" fill="#0647f4" font-family="Arial,Helvetica,sans-serif" font-size="39" font-weight="900" letter-spacing="-2" text-anchor="middle">VOC</text>
+</svg>
