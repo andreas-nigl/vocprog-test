@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Vokabel-Scanner & Trainer · Testversion 0.3</title>
+  <title>Vokabel-Scanner & Trainer · Testversion 0.4</title>
   <link rel="stylesheet" href="vocprog-enhancements.css">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   
@@ -132,7 +132,6 @@
 
   <div class="card" id="scanCard">
     <h2>2. Datenverwaltung</h2>
-    <div class="profile-row"><label for="profilePicker">Nutzer</label><select id="profilePicker" onchange="setLearningProfile(this.value)"><option value="Niklas">Niklas</option><option value="Andreas">Andreas</option></select></div>
     
     <label for="bookSelect">Buch</label>
     <div class="book-manager"><select id="bookSelect" onchange="pickLearningBook()"></select><button type="button" id="renameBookBtn" title="Buch umbenennen" aria-label="Buch umbenennen" onclick="renameSelectedBook()">✎</button><button type="button" class="book-delete" id="deleteBookBtn" title="Buch löschen" aria-label="Buch löschen" onclick="confirmSelectedBookDeletion()">×</button></div>
@@ -368,11 +367,38 @@
           -> JA: Übernimm diese exakt so aus dem Buch. 
           -> NEIN: Übersetze den Satz SELBST korrekt ins Deutsche! Nimm als Satzübersetzung NIEMALS einfach nur das einzelne deutsche Vokabel-Wort aus Spalte 2!
 
+          ZUSÄTZLICH: Prüfe, ob auf den abgebildeten Seiten gedruckte Verbkonjugationen/
+          Konjugationstabellen stehen. Erfasse dann neben normalen Vokabeln sämtliche
+          TATSÄCHLICH erkennbaren Personalformen, mit Infinitiv, Tempus, Seite, Personengruppe,
+          vollständiger konjugierter französischer Form und sinnvoller deutscher Übersetzung.
+          Keine fehlenden Zeiten oder Formen aus Sprachwissen ergänzen; nur abgedruckte
+          Formen übernehmen. Bei mehreren Zeitformen getrennte Einträge erzeugen.
+          Für Französisch zusammenfassen: je/j', tu, il/elle/on, nous, vous,
+          ils/elles. Gruppierte Varianten in einem Feld mit Schrägstrich:
+          z.B. "il/elle/on va" und "er/sie/man geht" sowie
+          "ils/elles vont" und "sie gehen".
+          "vous" umfasst je nach Kontext "ihr/Sie", nicht frei erfinden.
+          Unklare, unleserliche Verbformen weglassen; normale Vokabeln trotzdem erfassen.
+          Schreibe erkannte Konjugationen ausschließlich in "conjugations", nie doppelt
+          in "items", falls die Form sonst separat als Vokabel erscheinen würde.
+
           Antworte AUSSCHLIESSLICH im gültigen JSON-Format als Objekt mit folgender Struktur:
           {
             "detected_language_code": "en-US", 
             "items": [
               { "page": "190", "foreign": "Fremdwort", "german": "deutsche Übersetzung", "sentence_foreign": "Vollständiger Beispielsatz ohne Welle", "sentence_german": "Satzübersetzung" }
+            ],
+            "conjugations": [
+              { "page": "190", "infinitive": "aller", "tense": "présent",
+                "forms": [
+                  { "person": "je", "foreign": "je vais", "german": "ich gehe" },
+                  { "person": "tu", "foreign": "tu vas", "german": "du gehst" },
+                  { "person": "il/elle/on", "foreign": "il/elle/on va", "german": "er/sie/man geht" },
+                  { "person": "nous", "foreign": "nous allons", "german": "wir gehen" },
+                  { "person": "vous", "foreign": "vous allez", "german": "ihr geht/Sie gehen" },
+                  { "person": "ils/elles", "foreign": "ils/elles vont", "german": "sie gehen" }
+                ]
+              }
             ]
           }
           Mögliche Werte für 'detected_language_code': 'en-US', 'fr-FR', 'es-ES', 'la-LA', 'pt-PT', 'nl-NL'.`
@@ -422,10 +448,11 @@
       let addedCount = mergeVocabularies(newVocabs);
 
       saveToLocalStorage();
+      const countConjugations=ingestConjugations(parsedResponse.conjugations||[], parsedResponse.detected_language_code);
       updateScannedPagesUI();
       initPageInputAndSelectors();
       document.getElementById('rangeCard').classList.remove('hidden');
-      status.innerText = `${addedCount} neue Vokabeln erfolgreich erkannt & gespeichert!`;
+      status.innerText = `${addedCount} neue Vokabeln und ${countConjugations} Konjugationsformen erfolgreich gespeichert.`;
       rawImages = [];
       renderGallery();
     } catch (err) {
@@ -458,6 +485,11 @@
           id: item.id,
           bookId: item.bookId,
           updatedAt: item.updatedAt,
+          kind: item.kind || "words",
+          tense: item.tense || "",
+          infinitive: item.infinitive || "",
+          person: item.person || "",
+          lang: item.lang || document.getElementById("targetLang").value,
           foreign: foreignStr,
           german: germanStr,
           sentence_foreign: item.sentence_foreign || "",
@@ -896,8 +928,7 @@
 <div id="pickerNewFields" hidden><label for="pickerNewName">Neuer Buchname</label><input id="pickerNewName" value="Muster" placeholder="Muster"><small>Die Sprache wird beim ersten erfolgreichen Scan automatisch erkannt.</small></div>
 <div class="dialog-buttons"><button type="button" onclick="commitBookPicker()">Weiter</button><button type="button" onclick="document.getElementById('bookPicker').close()">Abbrechen</button></div></dialog>
 <dialog id="analysisDialog" class="voc-dialog wide"><div class="dialog-head"><h2>Lernanalyse</h2><button type="button" onclick="document.getElementById('analysisDialog').close()">Schließen</button></div><div id="analysisContent"></div></dialog>
-<dialog id="cloudAuthDialog" class="voc-dialog"><h3>Supabase-Anmeldung</h3><label>E-Mail</label><input id="authEmail" type="email" autocomplete="username"><label>Passwort</label><input id="authPassword" type="password" autocomplete="current-password"><p id="cloudAuthStatus"></p><div class="dialog-buttons"><button type="button" onclick="loginVocprog()">Anmelden</button><button type="button" onclick="document.getElementById('cloudAuthDialog').close()">Schließen</button></div></dialog>
-<div class="voc-footer"><span id="connectionStatus">Online · Sync –</span><button type="button" id="connectCloudBtn" hidden onclick="showCloudLogin()">Erstmalig anmelden</button><small>Testversion 0.3 · 09.11.26</small></div>
+<div class="voc-footer"><span id="connectionStatus">Online · Sync –</span><small>Testversion 0.4 · 10.11.26</small></div>
 <div class="analysis-float-zone" role="group" aria-label="Auswertung"><button type="button" id="analysisOpenBtn" class="analysis-open" onclick="showLearningAnalysis()" title="Lernanalyse öffnen" aria-label="Lernanalyse öffnen"><svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-8M22 20H2"/></svg></button></div>
 <script src="vocprog-enhancements.js"></script>
 </body>
