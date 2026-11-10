@@ -283,7 +283,8 @@
     // Avoid mixing different books that happen to contain identical words and page numbers.
     const filtered=tagged.filter(v=>!vocabList.some(x=>x.bookId===v.bookId&&String(x.page)===String(v.page)&&
       String(x.foreign).trim().toLowerCase()===String(v.foreign).trim().toLowerCase()&&
-      String(x.german).trim().toLowerCase()===String(v.german).trim().toLowerCase()));
+      String(x.german).trim().toLowerCase()===String(v.german).trim().toLowerCase()&&
+      (v.kind!=="conjugation"||String(x.tense||"")===String(v.tense||""))));
     const count=oldMerge(filtered);
     vocabList.forEach(v=>{if(!v.id)v.id=id();if(!v.bookId)v.bookId=chosenBook;});
     return count;
