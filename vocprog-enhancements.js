@@ -14,11 +14,10 @@
   let specials = read(STORE+"_special",[]);
   let history = read(STORE+"_events",[]);
   let tombstones = read(STORE+"_tombstones",[]);
-  let currentProfile = localStorage.getItem(STORE+"_profile") || "Niklas";
+
   let chosenBook = localStorage.getItem(STORE+"_book") || "";
   let chosenForScan = "";
   let lastSync = localStorage.getItem(STORE+"_synced") || "";
-  let auth = read(STORE+"_auth",null);
   let analysisInterrupted = false;
   let analyzedThisCard = false;
   let lastShownEvent = null;
@@ -78,7 +77,6 @@
   }
   function persistMetadata(){
     save(STORE+"_books",books);save(STORE+"_special",specials);save(STORE+"_events",history);save(STORE+"_tombstones",tombstones);
-    localStorage.setItem(STORE+"_profile",currentProfile);
     localStorage.setItem(STORE+"_book",chosenBook);
     scheduleSync();
   }
@@ -203,10 +201,43 @@
     loadFromLocalStorage();
     refreshBookChoices();
   };
-  window.pickLearningBook=function(){chooseBook(get("bookSelect").value)};
-  window.setLearningProfile=function(v){
-    currentProfile=v;persistMetadata();get("profilePicker").value=v;
+  window.ingestConjugations=function(conjugations,language){
+    if(!Array.isArray(conjugations)||conjugations.length===0)return 0;
+    const origin=books.find(b=>b.id===chosenBook);
+    if(!origin)throw Error("Kein Quellbuch für Konjugationen ausgewählt.");
+    const sourceBookId=origin.id;
+    const name=origin.name+" – Konjugationen";
+    let conjBook=books.find(b=>b.sourceBookId===sourceBookId&&b.kind==="conjugations");
+    const persons=new Set(["je","j'","tu","il/elle/on","nous","vous","ils/elles"]);
+    const items=[];
+    for(const group of conjugations){
+      if(!group||!Array.isArray(group.forms)||!String(group.infinitive||"").trim())continue;
+      const tense=String(group.tense||"").trim();
+      if(!tense)continue;
+      for(const form of group.forms){
+        const person=String(form.person||"").trim().toLowerCase();
+        const foreign=String(form.foreign||"").trim();
+        const german=String(form.german||"").trim();
+        if(!persons.has(person)||!foreign||!german)continue;
+        items.push({bookId:"",lang:language,kind:"conjugation",
+          page:String(group.page||"?"),foreign,german,
+          infinitive:String(group.infinitive).trim(),tense,person,
+          sentence_foreign:"",sentence_german:""});
+      }
+    }
+    if(!items.length)return 0;
+    if(!conjBook){
+      conjBook=addBook(language,name);
+      conjBook.sourceBookId=sourceBookId;
+      conjBook.kind="conjugations";
+      persistMetadata();
+    }
+    const count=mergeVocabularies(items.map(item=>({...item,bookId:conjBook.id})));
+    saveToLocalStorage();
+    chooseBook(sourceBookId);
+    return count;
   };
+  window.pickLearningBook=function(){chooseBook(get("bookSelect").value)};
 
   const oldLoad=loadFromLocalStorage;
   loadFromLocalStorage=function(){
@@ -355,7 +386,7 @@
     recognition.start();
   };
   function logEvent(action,item,other={}){
-    const entry={id:id(),profile:currentProfile,bookId:item.bookId||chosenBook,
+    const entry={id:id(),bookId:item.bookId||chosenBook,
       page:String(item.page||"?"),pages:(item.pages?.length?item.pages:[item.page||"?"]).map(String),kind:item.kind||"words",
       sourceId:item.sourceId||item.ref||"",at:new Date().toISOString(),
       action,...other};
@@ -448,8 +479,10 @@
   }
   const oldExport=exportDataToFile;
   exportDataToFile=function(){
+    const anonymousEvents=history.map(({profile,...event})=>event);
     const data={schemaVersion:2,exportedAt:new Date().toISOString(),
-      books, vocabulary:allVocab(),specialSentences:specials,practiceEvents:history,deletedRecords:tombstones};
+      books, vocabulary:allVocab(),specialSentences:specials,
+      practiceEvents:anonymousEvents,deletedRecords:tombstones};
     const file=new Blob([JSON.stringify(data,null,2)],{type:"text/plain;charset=utf-8"});
     const url=URL.createObjectURL(file),a=document.createElement("a");
     const d=new Date(),pad=n=>String(n).padStart(2,"0");
@@ -488,22 +521,17 @@
       persistMetadata();chooseBook(chosenBook);alert("Vollständige Sicherung eingelesen.");
     }).catch(e=>alert("Import fehlgeschlagen: "+e.message)).finally(()=>{ev.target.value="";});
   };
-  const oldClear=clearCurrentLangData;
   clearCurrentLangData=function(){
-    if(auth?.access_token){
-      alert("Zum Schutz der Cloud-Daten ist das Löschen bei aktivierter Synchronisation noch gesperrt. Bitte zuerst Daten exportieren.");
-      return;
-    }
-    oldClear();ensureMigration();refreshBookChoices();
+    alert("Bitte zum Löschen das rote X beim gewünschten Buch verwenden.");
   };
 
   window.showLearningAnalysis=function(){
     const container=get("analysisContent");container.innerHTML="";
-    const events=history.filter(x=>x.profile===currentProfile);
+    const events=history;
     const grades=events.filter(x=>x.action==="graded");
     const right=grades.filter(x=>x.correct).length;
     const intro=document.createElement("p");
-    intro.textContent="Lernprofil: "+currentProfile+" · "+events.filter(x=>x.action==="shown").length+
+    intro.textContent=events.filter(x=>x.action==="shown").length+
       " Abfragen · "+grades.length+" bewertete Antworten · "+(grades.length?Math.round(right/grades.length*100):0)+" % richtig";
     container.append(intro);
     for(const b of books){
@@ -549,36 +577,15 @@
     get("analysisDialog").showModal();
   };
 
-  async function refreshToken(){
-    if(!auth?.refresh_token)return false;
-    const res=await fetch(DB_URL+"/auth/v1/token?grant_type=refresh_token",{
-      method:"POST",headers:{"apikey":PUB_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify({refresh_token:auth.refresh_token})});
-    if(!res.ok){auth=null;localStorage.removeItem(STORE+"_auth");renderStatus();return false;}
-    auth=await res.json();auth.expires_at=Math.floor(Date.now()/1000)+(auth.expires_in||3600);save(STORE+"_auth",auth);return true;
-  }
-  async function login(email,password){
-    const res=await fetch(DB_URL+"/auth/v1/token?grant_type=password",{
-      method:"POST",headers:{"apikey":PUB_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify({email,password})});
-    const data=await res.json();
-    if(!res.ok)throw Error(data.msg||data.error_description||data.error||"Anmeldung fehlgeschlagen");
-    auth=data;auth.expires_at=Math.floor(Date.now()/1000)+(data.expires_in||3600);save(STORE+"_auth",auth);await syncNow();
-  }
-  window.loginVocprog=async function(){
-    const label=get("cloudAuthStatus");label.textContent="Anmeldung läuft …";
-    try{await login(get("authEmail").value.trim(),get("authPassword").value);get("authPassword").value="";
-      get("cloudAuthDialog").close();label.textContent="Angemeldet";}
-    catch(e){label.textContent=e.message;}
-    renderStatus();
-  };
-    window.showCloudLogin=function(){get("cloudAuthDialog").showModal();};
   function records(){
     const items=[];
     for(const b of books)items.push({record_id:"book:"+b.id,record_type:"book",payload:b,updated_at:b.updatedAt});
     for(const v of allVocab())items.push({record_id:"vocab:"+v.id,record_type:"vocab",payload:v,updated_at:v.updatedAt});
     for(const x of specials)items.push({record_id:"special:"+x.id,record_type:"special",payload:x,updated_at:x.updatedAt});
-    for(const x of history)items.push({record_id:"event:"+x.id,record_type:"event",payload:x,updated_at:x.at});
+    for(const x of history){
+      const {profile, ...publicEvent}=x;
+      items.push({record_id:"event:"+x.id,record_type:"event",payload:publicEvent,updated_at:x.at});
+    }
     for(const t of tombstones)items.push(t);
     return items;
   }
@@ -637,56 +644,59 @@
       else {vocabList=[];filteredVocabList=[];get("rangeCard").classList.add("hidden");refreshBookChoices();}
     }
   }
-  async function authFetch(path,options={}){
-    if(auth?.expires_at&&auth.expires_at<Math.floor(Date.now()/1000)+60)await refreshToken();
-    return fetch(DB_URL+path,{...options,headers:{"apikey":PUB_KEY,
-      "Authorization":"Bearer "+auth.access_token,
-      "Content-Type":"application/json",...(options.headers||{})}});
+  async function publicFetch(path,options={}){
+    return fetch(DB_URL+path,{...options,headers:{
+      "apikey":PUB_KEY,"Content-Type":"application/json",...(options.headers||{})
+    }});
   }
   window.syncVocprog=syncNow;
+  let lastError="";
   async function syncNow(){
-    if(syncing||!navigator.onLine||!auth?.access_token)return;
+    if(syncing||!navigator.onLine)return;
     syncing=true;renderStatus();
     try{
-      let res=await authFetch("/rest/v1/vocprog_records?select=record_id,record_type,payload,updated_at&limit=10000");
-      if(!res.ok)throw Error("Datenbank lesen: HTTP "+res.status+" (Tabellen/RLS angelegt?)");
+      const table="/rest/v1/vocprog_public_records";
+      let res=await publicFetch(table+"?select=record_id,record_type,payload,updated_at&limit=10000");
+      if(!res.ok)throw Error("Öffentliche Tabelle noch nicht eingerichtet (HTTP "+res.status+").");
       const remote=await res.json();
-      if(remote.length>=10000)throw Error("Synchronisation: Paging nötig, Datensatzgrenze erreicht");
+      if(!Array.isArray(remote))throw Error("Ungültige Datenbankantwort.");
+      if(remote.length>=10000)throw Error("Datensatzgrenze erreicht – Paging erforderlich.");
       mergeRemote(remote);
       const server=new Map(remote.map(x=>[x.record_id,x]));
-      const owner=auth.user?.id;
-      if(!owner)throw Error("Benutzer-ID fehlt");
-      const outgoing=records().filter(x=>!server.has(x.record_id)||newer(x.updated_at,server.get(x.record_id).updated_at))
-        .map(x=>({...x,owner_id:owner}));
+      const outgoing=records().filter(x=>!server.has(x.record_id)||
+        newer(x.updated_at,server.get(x.record_id).updated_at));
       for(let i=0;i<outgoing.length;i+=100){
-        res=await authFetch("/rest/v1/vocprog_records?on_conflict=owner_id,record_id",{
+        res=await publicFetch(table+"?on_conflict=record_id",{
           method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},
-          body:JSON.stringify(outgoing.slice(i,i+100))});
-        if(!res.ok)throw Error("Datensätze senden: HTTP "+res.status);
+          body:JSON.stringify(outgoing.slice(i,i+100))
+        });
+        if(!res.ok)throw Error("Öffentlicher Schreibzugriff nicht eingerichtet (HTTP "+res.status+").");
       }
-      lastSync=new Date().toISOString();
-      localStorage.setItem(STORE+"_synced",lastSync);
-      get("cloudAuthStatus").textContent="Synchronisiert";
-    }catch(e){get("cloudAuthStatus").textContent=e.message;console.warn(e);}
+      lastSync=new Date().toISOString();localStorage.setItem(STORE+"_synced",lastSync);lastError="";
+    }catch(e){lastError=e.message;console.warn("VOC Sync:",e);}
     finally{syncing=false;renderStatus();}
   }
   function scheduleSync(){
-    if(!auth?.access_token)return;
-    clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,1300);
+    clearTimeout(syncTimer);
+    if(navigator.onLine)syncTimer=setTimeout(syncNow,1300);
   }
   function renderStatus(){
     const time=lastSync?new Date(lastSync):null;
     const stamp=time&&!isNaN(time.getTime())?
-      new Intl.DateTimeFormat("de-DE",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).format(time):"–";
-    const connected=!!auth?.access_token;
-    const cloud=connected?(syncing?" · Synchronisierung läuft":" · Cloud verbunden"):" · Cloud noch nicht verbunden";
-    get("connectionStatus").textContent=(navigator.onLine?"Online":"Offline")+" · Sync "+stamp+cloud;
-    get("connectCloudBtn").hidden=connected;
+      new Intl.DateTimeFormat("de-DE",{
+        day:"2-digit",month:"2-digit",year:"2-digit",
+        hour:"2-digit",minute:"2-digit",hour12:false
+      }).format(time):"–";
+    get("connectionStatus").textContent=(navigator.onLine?"Online":"Offline")+
+      " · Sync "+stamp+(lastError?" · "+lastError:syncing?" · Sync läuft":"");
   }
   function onReady(){
     document.body.classList.remove("voc-training-active");
+    localStorage.removeItem(STORE+"_auth");
+    localStorage.removeItem(STORE+"_profile");
+    history=history.map(({profile,...event})=>event);
+    save(STORE+"_events",history);
     ensureMigration();
-    get("profilePicker").value=currentProfile;
     if(chosenBook)chooseBook(chosenBook);else refreshBookChoices();
     updateOnlineState();
     tempImages().then(images=>{
@@ -698,8 +708,8 @@
     if("serviceWorker" in navigator&&location.protocol==="https:"){
       navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("SW registration failed",e));
     }
-    if(auth?.access_token)syncNow();
-    setInterval(()=>{if(navigator.onLine&&auth?.access_token)syncNow();},15*60*1000);
+    syncNow();
+    setInterval(()=>{if(navigator.onLine)syncNow();},15*60*1000);
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",onReady);
   else onReady();
