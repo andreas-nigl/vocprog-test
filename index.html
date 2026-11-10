@@ -476,7 +476,8 @@
         v.bookId === item.bookId &&
         String(v.page).trim() === pageStr &&
         String(v.foreign).trim().toLowerCase() === foreignStr.toLowerCase() &&
-        String(v.german).trim().toLowerCase() === germanStr.toLowerCase()
+        String(v.german).trim().toLowerCase() === germanStr.toLowerCase() &&
+        ((item.kind !== "conjugation") || String(v.tense||"") === String(item.tense||""))
       );
 
       if (!isDuplicate) {
