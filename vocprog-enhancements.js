@@ -98,11 +98,17 @@
     get("renameBookBtn").disabled=!selected;
     get("deleteBookBtn").disabled=!selected;
   }
+  function sortedBooks(){
+    return [...books].sort((a,b)=>{
+      const nameOrder=String(a.name||"").localeCompare(String(b.name||""),"de",{numeric:true,sensitivity:"base"});
+      return nameOrder||String(a.id||"").localeCompare(String(b.id||""));
+    });
+  }
   function refreshBookChoices(){
     const select=get("bookSelect");if(!select)return;
     select.replaceChildren();
-    for(const b of books)select.add(new Option(bookText(b),b.id));
-    if(!books.some(b=>b.id===chosenBook))chosenBook=books[0]?.id||"";
+    for(const b of sortedBooks())select.add(new Option(bookText(b),b.id));
+    if(!books.some(b=>b.id===chosenBook))chosenBook=sortedBooks()[0]?.id||"";
     if(chosenBook)select.value=chosenBook;
     renderBooks();
   }
@@ -168,7 +174,7 @@
     const modal=get("bookPicker");
     const dropdown=get("pickerBook");
     dropdown.innerHTML="";
-    books.forEach(b=>dropdown.add(new Option(bookText(b),b.id)));
+    sortedBooks().forEach(b=>dropdown.add(new Option(bookText(b),b.id)));
     dropdown.add(new Option("＋ Neues Buch anlegen","__new__"));
     dropdown.value=chosenBook||"__new__";
     get("pickerNewName").value="Muster";
@@ -683,11 +689,15 @@
   }
   function renderStatus(){
     const time=lastSync?new Date(lastSync):null;
-    const stamp=time&&!isNaN(time.getTime())?
-      new Intl.DateTimeFormat("de-DE",{
+    const stamp=time&&!isNaN(time.getTime())?(()=>{
+      const parts=new Intl.DateTimeFormat("de-DE",{
         day:"2-digit",month:"2-digit",year:"2-digit",
         hour:"2-digit",minute:"2-digit",hour12:false
-      }).format(time):"–";
+      }).formatToParts(time);
+      const value=type=>parts.find(part=>part.type===type)?.value||"";
+      return value("day")+"."+value("month")+"."+value("year")+" "+
+        value("hour")+":"+value("minute");
+    })():"–";
     get("connectionStatus").textContent=(navigator.onLine?"Online":"Offline")+
       " · Sync "+stamp+(lastError?" · "+lastError:syncing?" · Sync läuft":"");
   }
