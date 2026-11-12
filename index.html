@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Vokabel-Scanner & Trainer · Testversion 0.4</title>
+  <title>vocprog · Testvorschau 0.5</title>
   <link rel="stylesheet" href="vocprog-enhancements.css">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   
@@ -124,7 +124,6 @@
       <option value="en-US">Englisch</option>
       <option value="fr-FR">Französisch</option>
       <option value="es-ES">Spanisch</option>
-      <option value="la-LA">Lateinisch</option>
       <option value="pt-PT">Portugiesisch</option>
       <option value="nl-NL">Niederländisch</option>
     </select>
@@ -134,7 +133,7 @@
     <h2>2. Datenverwaltung</h2>
     
     <label for="bookSelect">Buch</label>
-    <div class="book-manager"><select id="bookSelect" onchange="pickLearningBook()"></select><button type="button" id="renameBookBtn" title="Buch umbenennen" aria-label="Buch umbenennen" onclick="renameSelectedBook()">✎</button><button type="button" class="book-delete" id="deleteBookBtn" title="Buch löschen" aria-label="Buch löschen" onclick="confirmSelectedBookDeletion()">×</button></div>
+    <div class="book-manager"><select id="bookSelect" onchange="pickLearningBook()"></select><button type="button" id="renameBookBtn" title="Buch umbenennen" aria-label="Buch umbenennen" onclick="renameSelectedBook()">✎</button><button type="button" id="mergeBookBtn" title="Zwei Bücher zusammenführen" aria-label="Bücher zusammenführen" onclick="openMergeBooks()"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h4c3 0 4 5 8 7M3 19h4c3 0 4-5 8-7M14 12h7m-4-4 4 4-4 4"/></svg></button><button type="button" class="book-delete" id="deleteBookBtn" title="Buch löschen" aria-label="Buch löschen" onclick="confirmSelectedBookDeletion()">×</button></div>
     <div class="status-badge" id="scannedPagesBadge">
       📖 Vorhandene Seiten: Keinen Speicherstand gefunden
     </div>
@@ -193,12 +192,13 @@
       <option value="foreign_to_de">Fremdsprache ➔ Deutsch</option>
     </select>
     
-    <label>Lernmodus</label>
+    <div id="studyModeWrap"><label>Lernmodus</label>
     <select id="studyMode">
       <option value="words">Einzelne Vokabeln</option>
       <option value="book_sentences">Beispielsätze aus dem Buch</option>
       <option value="ai_combined">Kombinierte Sätze (Vollständiger KI-Mix)</option>
-    </select>
+    </select></div>
+    <div id="tenseModeWrap" hidden><label for="tenseSelect">Zeitform</label><select id="tenseSelect" onchange="refreshVerbSelection()"></select></div>
     
     <label><input type="checkbox" id="randomize" style="width: auto; margin-right: 6px;" checked> Zufällige Reihenfolge</label>
     <button onclick="startTraining(event)">▶ Abfrage starten</button>
@@ -206,7 +206,7 @@
 
   <div class="trainer-card hidden" id="trainerCard">
     <div style="display: flex; justify-content: space-between; align-items: center;">
-      <span id="counter" style="font-size: 0.85rem; color: var(--text-muted);">1 / 10</span>
+      <span id="counter" style="font-size: 0.85rem; color: var(--text-muted);">1 / 10</span><button type="button" id="verbTableToggle" class="secondary" hidden onclick="toggleVerbTable()" aria-expanded="false" aria-controls="verbTablePanel">Tabelle</button>
       <button class="icon-btn" style="font-size: 0.9rem;" onclick="exitTrainer()">✕</button>
     </div>
     <div class="item-row">
@@ -224,6 +224,7 @@
       </div>
     </div>
     <div id="refText"></div>
+    <section id="verbTablePanel" class="verb-table-panel" hidden aria-label="Konjugationstabelle"></section>
     <div class="nav-controls">
       <button class="secondary" onclick="prevCard()">Zurück</button>
       <button onclick="advanceOrGrade()">Weiter</button>
@@ -353,7 +354,7 @@
         {
           text: `Analysiere die Vokabelseiten Zeile für Zeile (horizontal).
           WICHTIG ZUR SPRACHE:
-          Ermittle automatisch die auf den Buchseiten abgedruckte Fremdsprache (z.B. Englisch, Französisch, Spanisch, Latein).
+          Ermittle automatisch die auf den Buchseiten abgedruckte Fremdsprache (z.B. Englisch, Französisch, Spanisch, Portugiesisch, Niederländisch).
           
           SEHR WICHTIG ZUM BILDMATERIAL & PLATZHALTER/TILDEN:
           Falls in Beispielsätzen Platzhalter, Wellenlinien (~) oder Abkürzungen vorkommen (z.B. '~ sth.', 'to ~'), ERSETZE DIE WELLE BZW. DEN PLATZHALTER VOLLSTÄNDIG durch das konkrete fremdsprachige Wort bzw. die vollständige grammatikalische Form!
@@ -382,12 +383,20 @@
           Schreibe erkannte Konjugationen ausschließlich in "conjugations", nie doppelt
           in "items", falls die Form sonst separat als Vokabel erscheinen würde.
 
+          Prüfe AUCH bei einzelnen Vokabeln, ob sie Verben im Infinitiv sind.
+          Liste jedes auf der Seite wirklich erkennbare Verb in "verbs" mit Infinitiv,
+          deutscher Grundbedeutung und Seitenzahl auf, selbst wenn keine Konjugation
+          abgedruckt ist. Andere Wortarten niemals in "verbs" aufnehmen.
+          Keine Infinitive erfinden, die aus dem Bild nicht ableitbar sind.
+          Erkenne und trenne Vokabelwörter von Verbformen. Die Buchart (Vokabeln
+          oder Verben) wird vom Benutzer ausgewählt, nicht von der KI.
           Antworte AUSSCHLIESSLICH im gültigen JSON-Format als Objekt mit folgender Struktur:
           {
             "detected_language_code": "en-US", 
             "items": [
               { "page": "190", "foreign": "Fremdwort", "german": "deutsche Übersetzung", "sentence_foreign": "Vollständiger Beispielsatz ohne Welle", "sentence_german": "Satzübersetzung" }
             ],
+            "verbs": [{ "page": "190", "infinitive": "aller", "german": "gehen" }],
             "conjugations": [
               { "page": "190", "infinitive": "aller", "tense": "présent",
                 "forms": [
@@ -401,7 +410,7 @@
               }
             ]
           }
-          Mögliche Werte für 'detected_language_code': 'en-US', 'fr-FR', 'es-ES', 'la-LA', 'pt-PT', 'nl-NL'.`
+          Mögliche Werte für 'detected_language_code': 'en-US', 'fr-FR', 'es-ES', 'pt-PT', 'nl-NL'.`
         },
         ...rawImages.map(imgData => ({
           inline_data: {
@@ -443,16 +452,20 @@
       if (!parsedResponse.detected_language_code) {
         throw new Error("Die Fremdsprache konnte nicht sicher erkannt werden. Scanbilder bleiben erhalten.");
       }
+      if(parsedResponse.detected_language_code==="la-LA"){
+        throw new Error("Latein ist aus VOC entfernt. Es wurden keine lateinischen Daten übernommen.");
+      }
       acceptScannedLanguage(parsedResponse.detected_language_code);
 
-      let addedCount = mergeVocabularies(newVocabs);
-
+      const verbBookSelected=isSelectedVerbBook();
+      let addedCount=verbBookSelected?0:mergeVocabularies(newVocabs);
       saveToLocalStorage();
+      const baseVerbs=await ingestVerbInfinitives(parsedResponse.verbs||[],parsedResponse.detected_language_code);
       const countConjugations=ingestConjugations(parsedResponse.conjugations||[], parsedResponse.detected_language_code);
       updateScannedPagesUI();
       initPageInputAndSelectors();
       document.getElementById('rangeCard').classList.remove('hidden');
-      status.innerText = `${addedCount} neue Vokabeln und ${countConjugations} Konjugationsformen erfolgreich gespeichert.`;
+      status.innerText = `${addedCount} neue Vokabeln, ${baseVerbs} neue Infinitive, ${window.VOCGeneratedFrenchForms||0} unabhängig abgeglichene Formen und ${countConjugations} gedruckte Konjugationsformen gespeichert. ${window.VOCScanVerificationWarnings||0} widersprüchliche Formen zurückgewiesen. Noch nicht übersetzte oder nicht unabhängig bestätigte Formen bleiben vorerst von der Abfrage ausgeschlossen.`;
       rawImages = [];
       renderGallery();
     } catch (err) {
@@ -472,13 +485,23 @@
 
       if (!foreignStr && !germanStr) return;
 
-      const isDuplicate = vocabList.some(v => 
-        v.bookId === item.bookId &&
-        String(v.page).trim() === pageStr &&
-        String(v.foreign).trim().toLowerCase() === foreignStr.toLowerCase() &&
-        String(v.german).trim().toLowerCase() === germanStr.toLowerCase() &&
-        ((item.kind !== "conjugation") || String(v.tense||"") === String(item.tense||""))
-      );
+      const normalized = value => String(value || "").trim().normalize("NFKC").toLocaleLowerCase();
+      const kind = item.kind || "words";
+      const verbKinds = new Set(["verb-infinitive", "verb-participle",
+        "verb-imperative", "verb-form", "verb-principal", "verb-ing",
+        "verb-gerund", "conjugation"]);
+      const isDuplicate = vocabList.some(v => {
+        if (v.bookId !== item.bookId || (v.kind || "words") !== kind) return false;
+        if (verbKinds.has(kind)) {
+          if (normalized(v.infinitive || v.lemma) !== normalized(item.infinitive || item.lemma))
+            return false;
+          return normalized(v.tense) === normalized(item.tense) &&
+            normalized(v.person) === normalized(item.person);
+        }
+        return String(v.page).trim() === pageStr &&
+          normalized(v.foreign) === normalized(foreignStr) &&
+          normalized(v.german) === normalized(germanStr);
+      });
 
       if (!isDuplicate) {
         vocabList.push({
@@ -490,6 +513,11 @@
           tense: item.tense || "",
           infinitive: item.infinitive || "",
           person: item.person || "",
+          verbId: String(item.verbId || ""),
+          lemma: String(item.lemma || ""),
+          regularity: String(item.regularity || ""),
+          verification: String(item.verification || ""),
+          translationVerification: String(item.translationVerification || ""),
           lang: item.lang || document.getElementById("targetLang").value,
           foreign: foreignStr,
           german: germanStr,
@@ -928,9 +956,11 @@
 <label for="pickerBook">Vorhandenes oder neues Buch</label><select id="pickerBook"></select>
 <div id="pickerNewFields" hidden><label for="pickerNewName">Neuer Buchname</label><input id="pickerNewName" value="Muster" placeholder="Muster"><small>Die Sprache wird beim ersten erfolgreichen Scan automatisch erkannt.</small></div>
 <div class="dialog-buttons"><button type="button" onclick="commitBookPicker()">Weiter</button><button type="button" onclick="document.getElementById('bookPicker').close()">Abbrechen</button></div></dialog>
-<dialog id="analysisDialog" class="voc-dialog wide"><div class="dialog-head"><h2>Lernanalyse</h2><button type="button" onclick="document.getElementById('analysisDialog').close()">Schließen</button></div><div id="analysisContent"></div></dialog>
-<div class="voc-footer"><span id="connectionStatus">Online · Sync –</span><small>Testversion 0.4 · 10.11.26</small></div>
+<dialog id="mergeBooksDialog" class="voc-dialog"><h3>Bücher zusammenführen</h3><label for="mergeSource">Erstes Buch (Ziel)</label><select id="mergeSource" onchange="refreshMergePreview()"></select><label for="mergeTarget">Zweites Buch</label><select id="mergeTarget" onchange="refreshMergePreview()"></select><label for="mergeName">Name des zusammengeführten Buchs</label><input id="mergeName"><p id="mergeWarning" role="status"></p><div class="dialog-buttons"><button type="button" id="mergeConfirm" onclick="confirmMergeBooks()">Zusammenführen</button><button type="button" onclick="document.getElementById('mergeBooksDialog').close()">Abbrechen</button></div></dialog>
+<dialog id="analysisDialog" class="voc-dialog wide"><div class="dialog-head"><h2>LERNANALYSE</h2><button type="button" onclick="document.getElementById('analysisDialog').close()">Schließen</button></div><label for="analysisBookSelect">Buch</label><select id="analysisBookSelect" onchange="renderSelectedBookAnalysis()"></select><div id="analysisContent"></div></dialog>
+<div class="voc-footer"><span id="connectionStatus">Online · Sync –</span><small>Testvorschau 0.5 · 12.11.26</small></div>
 <div class="analysis-float-zone" role="group" aria-label="Auswertung"><button type="button" id="analysisOpenBtn" class="analysis-open" onclick="showLearningAnalysis()" title="Lernanalyse öffnen" aria-label="Lernanalyse öffnen"><svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-8M22 20H2"/></svg></button></div>
+<script src="vocprog-fr-reference.js"></script>
 <script src="vocprog-enhancements.js"></script>
 </body>
 </html>
