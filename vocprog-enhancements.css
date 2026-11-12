@@ -67,3 +67,28 @@ body.voc-training-active .voc-footer,body.voc-training-active .analysis-float-zo
   .analysis-float-zone{width:calc(100% - 32px);max-width:480px;position:static;right:auto;bottom:auto;margin:0 auto 12px;justify-content:flex-end}
   #trainerCard .answer-entry button{transform:translateY(-5px)}
 }
+
+/* v0.5 development: verb table, analysis and restrained merge control */
+.book-manager #mergeBookBtn svg{width:19px;height:19px;display:block}
+#studyModeWrap[hidden],#tenseModeWrap[hidden],#verbTablePanel[hidden],#verbTableToggle[hidden]{display:none!important}
+#studyModeWrap select,#tenseModeWrap select{width:100%;margin-bottom:12px}
+#verbTableToggle{width:auto;min-width:70px;margin:0 8px 0 auto;padding:5px 9px;background:#f1f5f9;color:#111827;border:1px solid #1f2937;font-size:.79rem;border-radius:7px}
+.verb-table-panel{border:1px solid var(--border);border-radius:9px;background:var(--card);padding:12px;margin:8px 0;overflow-x:auto}
+.verb-table-panel h4{margin:2px 0 10px}
+.verb-table-panel table{border-collapse:collapse;width:100%;font-size:.84rem}
+.verb-table-panel th,.verb-table-panel td{text-align:left;border-bottom:1px solid var(--border);padding:6px 8px;vertical-align:top}
+.verb-table-panel th:first-child,.verb-table-panel td:first-child{width:55%}
+.voc-analysis-section h3{cursor:pointer;user-select:none;margin-bottom:4px}
+.voc-analysis-section h3:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+.voc-analysis-legend{font-size:.79rem;color:var(--text-muted);margin:4px 0}
+.voc-analysis-chart{display:flex;align-items:end;gap:12px;min-height:140px;overflow-x:auto;padding:16px 5px 2px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.voc-analysis-group{min-width:65px;height:128px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.voc-analysis-bars{height:103px;width:100%;display:flex;align-items:end;gap:4px}
+.voc-analysis-bar{min-height:2px;flex:1;border-radius:3px 3px 0 0;position:relative}
+.voc-analysis-bar.asked{background:#2563eb}
+.voc-analysis-bar.correct{background:#16a34a}
+.voc-analysis-bar.spoken{background:#64748b}
+.voc-analysis-bar span{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);font-size:10px;white-space:nowrap;color:var(--text)}
+.voc-analysis-error{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding:6px 0}
+.voc-analysis-error strong{font-variant-numeric:tabular-nums}
+@media(max-width:420px){.book-manager{gap:4px}.book-manager button{min-width:35px;width:35px;flex-basis:35px}}
