@@ -72,8 +72,12 @@ body.voc-training-active .voc-footer,body.voc-training-active .analysis-float-zo
 .book-manager #mergeBookBtn svg{width:19px;height:19px;display:block}
 #studyModeWrap[hidden],#tenseModeWrap[hidden],#verbTablePanel[hidden],#verbTableToggle[hidden]{display:none!important}
 #studyModeWrap select,#tenseModeWrap select{width:100%;margin-bottom:12px}
-#verbTableToggle{width:auto;min-width:70px;margin:0 8px 0 auto;padding:5px 9px;background:#f1f5f9;color:#111827;border:1px solid #1f2937;font-size:.79rem;border-radius:7px}
-.verb-table-panel{border:1px solid var(--border);border-radius:9px;background:var(--card);padding:12px;margin:8px 0;overflow-x:auto}
+.trainer-top-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center}
+.trainer-top-row #counter{justify-self:start}
+.trainer-top-row>button:last-child{justify-self:end}
+#verbTableToggle.icon-btn{justify-self:center;width:auto;min-width:76px;height:40px;min-height:40px;flex:none;margin:0;padding:0 13px;box-sizing:border-box;background:#e2e8f0;color:var(--text);border:0;border-radius:20px;font-size:.85rem;font-weight:600}
+#verbTableToggle.icon-btn:active{background:#cbd5e1}
+.verb-table-panel{width:100%;background:#fff;border:0;border-radius:16px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,.08);margin:0;overflow-x:auto;box-sizing:border-box}
 .verb-table-panel h4{margin:2px 0 10px}
 .verb-table-panel table{border-collapse:collapse;width:100%;font-size:.84rem}
 .verb-table-panel th,.verb-table-panel td{text-align:left;border-bottom:1px solid var(--border);padding:6px 8px;vertical-align:top}
@@ -92,3 +96,8 @@ body.voc-training-active .voc-footer,body.voc-training-active .analysis-float-zo
 .voc-analysis-error{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding:6px 0}
 .voc-analysis-error strong{font-variant-numeric:tabular-nums}
 @media(max-width:420px){.book-manager{gap:4px}.book-manager button{min-width:35px;width:35px;flex-basis:35px}}
+
+/* Preserve the original 42 px square book management buttons. */
+.book-manager #renameBookBtn,.book-manager #mergeBookBtn,.book-manager #deleteBookBtn{width:42px;min-width:42px;max-width:42px;flex:0 0 42px;height:42px;min-height:42px;border-radius:7px;margin:0;padding:0;box-shadow:none}
+.book-manager #mergeBookBtn{background:#475569;color:#fff;border:0}
+.book-manager #mergeBookBtn svg{width:21px;height:21px;stroke-width:1.8}
