@@ -544,8 +544,16 @@
   filterVocabByPages=function(){
     const allowed=parsePageRanges(get("pageRangeInput").value);
     const bookOnly=vocabList.filter(v=>v.bookId===chosenBook);
-    filteredVocabList=(!get("pageRangeInput").value.trim()||!allowed.length)?bookOnly:
+    const visible=(!get("pageRangeInput").value.trim()||!allowed.length)?bookOnly:
       bookOnly.filter(v=>allowed.includes(parseInt(v.page)));
+    // VOC books display only the remaining vocabulary; OCR numbering
+    // must not leave gaps where extracted verbs were moved to the verb book.
+    const pageCounters=new Map();
+    filteredVocabList=visible.map(v=>{
+      const page=String(v.page||"?"),number=(pageCounters.get(page)||0)+1;
+      pageCounters.set(page,number);
+      return {...v,refVocab:"S"+page+" V"+number};
+    });
     populateSelectors();
   };
   const oldSave=saveToLocalStorage;
