@@ -96,7 +96,7 @@
         }catch(e){console.error("Verbenbuch-Sicherung fehlgeschlagen",e);continue}
       }
       const at=new Date().toISOString(),identity=v=>[
-        v.kind||"",v.verbId||v.infinitive||v.lemma||"",
+        v.kind||"",v.page||"?",v.verbId||v.infinitive||v.lemma||"",
         v.tense||"",v.person||"",v.foreign||"",v.german||""
       ].map(x=>String(x).normalize("NFKC").trim().toLowerCase()).join("|");
       const known=new Map(),redirect=new Map();
