@@ -205,8 +205,8 @@
   </div>
 
   <div class="trainer-card hidden" id="trainerCard">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <span id="counter" style="font-size: 0.85rem; color: var(--text-muted);">1 / 10</span><button type="button" id="verbTableToggle" class="secondary" hidden onclick="toggleVerbTable()" aria-expanded="false" aria-controls="verbTablePanel">Tabelle</button>
+    <div class="trainer-top-row">
+      <span id="counter" style="font-size: 0.85rem; color: var(--text-muted);">1 / 10</span><button type="button" id="verbTableToggle" class="icon-btn" hidden onclick="toggleVerbTable()" aria-expanded="false" aria-controls="verbTablePanel">Tabelle</button>
       <button class="icon-btn" style="font-size: 0.9rem;" onclick="exitTrainer()">✕</button>
     </div>
     <div class="item-row">
@@ -224,12 +224,12 @@
       </div>
     </div>
     <div id="refText"></div>
-    <section id="verbTablePanel" class="verb-table-panel" hidden aria-label="Konjugationstabelle"></section>
     <div class="nav-controls">
       <button class="secondary" onclick="prevCard()">Zurück</button>
       <button onclick="advanceOrGrade()">Weiter</button>
     </div>
   </div>
+  <section id="verbTablePanel" class="verb-table-panel" hidden aria-label="Konjugationstabelle"></section>
 </div>
 
 
