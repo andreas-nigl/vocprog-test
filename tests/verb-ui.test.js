@@ -133,3 +133,23 @@ test("Verb table uses curated French reference for missing base forms",()=>{
   assert.match(code,/reference\?\.agreement\|\|reference\?\.pastParticiple/);
   assert.match(code,/Array\.isArray\(reference\?\.imperative\)/);
 });
+
+test("Repeat scan reports existing unique verbs without zero conflict warnings",()=>{
+  const source=fragment("  window.describeVOCScan=function", "  window.ingestVerbInfinitives=");
+  const window={VOCGeneratedFrenchForms:0,VOCScanVerificationWarnings:0};
+  new Function("window","books","bookKind","allVocab",source)(window,
+    [{id:"fr",lang:"fr-FR",kind:"verbs"}],b=>b.kind,
+    ()=>Array.from({length:33},(_,i)=>({bookId:"fr",infinitive:"verb"+i})).concat([
+      {bookId:"fr",infinitive:"verb0",foreign:"conjugated"}]));
+  const summary=window.describeVOCScan({language:"fr-FR"});
+  assert.match(summary,/Keine neuen Einträge/);
+  assert.match(summary,/33 verschiedene Verben/);
+  assert.doesNotMatch(summary,/widersprüchliche/);
+  window.VOCScanVerificationWarnings=2;
+  assert.match(window.describeVOCScan({language:"fr-FR",infinitives:1}),/2 widersprüchliche/);
+});
+
+test("Sync cannot expose learning setup during an active exercise",()=>{
+  assert.match(code,/target.length===0\|\|!get\("trainerCard"\).classList.contains\("hidden"\)/);
+  assert.match(css,/body:has\(#trainerCard:not\(\.hidden\)\) #rangeCard\{display:none!important\}/);
+});
