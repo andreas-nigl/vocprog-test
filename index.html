@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>vocprog · Testvorschau 0.5</title>
+  <title>vocprog · Testvorschau 0.5.1</title>
   <link rel="stylesheet" href="vocprog-enhancements.css">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   
@@ -958,7 +958,7 @@
 <div class="dialog-buttons"><button type="button" onclick="commitBookPicker()">Weiter</button><button type="button" onclick="document.getElementById('bookPicker').close()">Abbrechen</button></div></dialog>
 <dialog id="mergeBooksDialog" class="voc-dialog"><h3>Bücher zusammenführen</h3><label for="mergeSource">Erstes Buch (Ziel)</label><select id="mergeSource" onchange="refreshMergePreview()"></select><label for="mergeTarget">Zweites Buch</label><select id="mergeTarget" onchange="refreshMergePreview()"></select><label for="mergeName">Name des zusammengeführten Buchs</label><input id="mergeName"><p id="mergeWarning" role="status"></p><div class="dialog-buttons"><button type="button" id="mergeConfirm" onclick="confirmMergeBooks()">Zusammenführen</button><button type="button" onclick="document.getElementById('mergeBooksDialog').close()">Abbrechen</button></div></dialog>
 <dialog id="analysisDialog" class="voc-dialog wide"><div class="dialog-head"><h2>LERNANALYSE</h2><button type="button" onclick="document.getElementById('analysisDialog').close()">Schließen</button></div><label for="analysisBookSelect">Buch</label><select id="analysisBookSelect" onchange="renderSelectedBookAnalysis()"></select><div id="analysisContent"></div></dialog>
-<div class="voc-footer"><span id="connectionStatus">Online · Sync –</span><small>Testvorschau 0.5 · 12.11.26</small></div>
+<div class="voc-footer"><span id="connectionStatus">Online · Sync –</span><small>Testvorschau 0.5.1 · 13.11.26</small></div>
 <div class="analysis-float-zone" role="group" aria-label="Auswertung"><button type="button" id="analysisOpenBtn" class="analysis-open" onclick="showLearningAnalysis()" title="Lernanalyse öffnen" aria-label="Lernanalyse öffnen"><svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V11M10 20V5M16 20v-8M22 20H2"/></svg></button></div>
 <script src="vocprog-fr-reference.js"></script>
 <script src="vocprog-enhancements.js"></script>
