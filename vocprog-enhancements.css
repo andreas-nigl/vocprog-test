@@ -101,3 +101,22 @@ body.voc-training-active .voc-footer,body.voc-training-active .analysis-float-zo
 .book-manager #renameBookBtn,.book-manager #mergeBookBtn,.book-manager #deleteBookBtn{width:42px;min-width:42px;max-width:42px;flex:0 0 42px;height:42px;min-height:42px;border-radius:7px;margin:0;padding:0;box-shadow:none}
 .book-manager #mergeBookBtn{background:#475569;color:#fff;border:0}
 .book-manager #mergeBookBtn svg{width:21px;height:21px;stroke-width:1.8}
+
+/* VOC 0.5: restore neutral book controls and keep trainer close at far right. */
+.book-manager #renameBookBtn,
+.book-manager #mergeBookBtn,
+.book-manager #deleteBookBtn {
+  width:40px;min-width:40px;max-width:40px;flex:0 0 40px;
+  height:40px;min-height:40px;max-height:40px;
+  padding:0;margin:0;box-sizing:border-box;
+  border:1px solid #111827;border-radius:7px;
+  background:#fff;color:#111827;box-shadow:none;
+  font-size:21px;font-weight:400;
+}
+.book-manager #mergeBookBtn svg {width:18px;height:18px;stroke:currentColor;stroke-width:1.5}
+.book-manager #deleteBookBtn {background:#fff;color:#c62828;border-color:#111827;font-size:24px;font-weight:300}
+.book-manager #renameBookBtn:active,
+.book-manager #mergeBookBtn:active,
+.book-manager #deleteBookBtn:active {background:#f1f5f9}
+.trainer-top-row > button:last-child {grid-column:3;justify-self:end}
+#verbTableToggle.icon-btn {grid-column:2;grid-row:1}
