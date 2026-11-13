@@ -124,3 +124,6 @@ body.voc-training-active .voc-footer,body.voc-training-active .analysis-float-zo
 /* Consistent outline icons, independent of font glyph metrics. */
 .book-manager #renameBookBtn,.book-manager #mergeBookBtn,.book-manager #deleteBookBtn{display:flex;align-items:center;justify-content:center;line-height:1}
 .book-manager #renameBookBtn svg,.book-manager #mergeBookBtn svg,.book-manager #deleteBookBtn svg{display:block;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
+
+/* Sync must never reveal setup controls during an active exercise. */
+body:has(#trainerCard:not(.hidden)) #rangeCard{display:none!important}
