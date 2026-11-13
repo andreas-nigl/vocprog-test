@@ -921,8 +921,9 @@
     const base=entries.find(v=>v.kind==="verb-infinitive");
     const part=entries.find(v=>v.kind==="verb-participle");
     const imperative=entries.find(v=>v.kind==="verb-imperative");
-    const grammar=base?.regularity||paradigm?.regularity||"";
     const isFrench=activeBook()?.lang==="fr-FR";
+    const reference=isFrench?window.VOCFrenchReference?.conjugate(lemma):null;
+    const grammar=base?.regularity||paradigm?.regularity||reference?.regularity||"";
     const missing="– (noch nicht erfasst)";
     const heading=document.createElement("h4");
     heading.textContent=(base?.foreign||item.verbLemma)+(grammar?" ["+grammar+"]":"");
@@ -952,10 +953,11 @@
     if(isFrench){
       row("Infinitif : "+(base?.foreign||item.verbLemma),base?.german||missing);
       row("Participe passé : "+(part?.foreign||
-        paradigm?.agreement||paradigm?.pastParticiple||missing),part?.german||missing);
+        paradigm?.agreement||paradigm?.pastParticiple||reference?.agreement||reference?.pastParticiple||missing),part?.german||missing);
       const persons=["tu","nous","vous"];
       const imp=imperative?.foreign||(Array.isArray(paradigm?.imperative)?
-        paradigm.imperative.map((v,i)=>"("+persons[i]+") "+v).join(" / "):"");
+        paradigm.imperative.map((v,i)=>"("+persons[i]+") "+v).join(" / "):
+        Array.isArray(reference?.imperative)?reference.imperative.map((v,i)=>"("+persons[i]+") "+v).join(" / "):"");
       row("Impératif : "+(imp||missing),imperative?.german||missing);
     }else{
       row("Infinitiv : "+(base?.foreign||item.verbLemma),base?.german||missing);
@@ -985,9 +987,9 @@
         if(seen.has(key))continue;
         seen.add(key);row(entry.foreign,entry.german||missing);
       }
-    }else if(isFrench&&paradigm?.forms?.[tense]){
+    }else if(isFrench&&(paradigm?.forms?.[tense]||reference?.forms?.[tense])){
       const names=["je","tu","il/elle/on","nous","vous","ils/elles"];
-      paradigm.forms[tense].forEach((form,i)=>row(names[i]+" "+form,missing));
+      (paradigm?.forms?.[tense]||reference.forms[tense]).forEach((form,i)=>row(names[i]+" "+form,missing));
     }else row("Noch keine geprüften Formen",missing);
     table.append(tbody);
     panel.replaceChildren(heading,table);
