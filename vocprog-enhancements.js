@@ -435,6 +435,24 @@
     return count;
   }
 
+  window.describeVOCScan=function({words=0,infinitives=0,conjugations=0,language}){
+    const generated=Number(window.VOCGeneratedFrenchForms)||0;
+    const rejected=Number(window.VOCScanVerificationWarnings)||0;
+    const verbBooks=new Set(books.filter(b=>b.lang===language&&bookKind(b)==="verbs").map(b=>b.id));
+    const lemmas=new Set(allVocab().filter(v=>verbBooks.has(v.bookId))
+      .map(v=>String(v.infinitive||v.verbId||v.lemma||(v.kind==="verb-infinitive"?v.foreign:"")||"").trim().toLocaleLowerCase())
+      .filter(Boolean));
+    const total=words+infinitives+conjugations+generated;
+    const parts=[total?"Scan abgeschlossen: "+words+" neue Vokabeln, "+infinitives+
+      " neue Infinitive, "+conjugations+" gedruckte Konjugationsformen und "+generated+
+      " unabhängig abgeglichene Formen gespeichert.":"Scan abgeschlossen: Keine neuen Einträge hinzugefügt."];
+    if(lemmas.size)parts.push("Im Verbenbestand dieser Sprache sind insgesamt "+lemmas.size+" verschiedene Verben gespeichert.");
+    if(!total)parts.push("Bereits vorhandene Einträge werden nicht erneut angelegt. Nicht übernehmbare Einträge können ebenfalls zu diesem Ergebnis führen.");
+    if(rejected)parts.push(rejected+" widersprüchliche Formen wurden zurückgewiesen.");
+    parts.push("Die Tabelle ergänzt verfügbare Konjugationen lokal. Fehlende Übersetzungen bleiben gekennzeichnet; nicht übersetzte oder nicht unabhängig bestätigte Formen sind von der Abfrage ausgeschlossen.");
+    return parts.join(" ");
+  };
+
   window.ingestVerbInfinitives=async function(entries,language){
     if(!Array.isArray(entries)||!entries.length||!LANGS[language])return 0;
     const valid=entries.filter(e=>e&&String(e.infinitive||"").trim()&&String(e.german||"").trim());
@@ -539,7 +557,7 @@
     const target=vocabList.filter(v=>v.bookId===book.id);
     get("pageRangeInput").value=formatPageRanges([...new Set(target.map(x=>Number(x.page)).filter(Number.isFinite))].sort((a,b)=>a-b));
     filterVocabByPages();
-    get("rangeCard").classList.toggle("hidden",target.length===0);
+    get("rangeCard").classList.toggle("hidden",target.length===0||!get("trainerCard").classList.contains("hidden"));
   };
   filterVocabByPages=function(){
     const allowed=parsePageRanges(get("pageRangeInput").value);
