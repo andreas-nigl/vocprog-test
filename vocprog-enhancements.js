@@ -907,7 +907,8 @@
     panel.replaceChildren();
   };
 
-  window.toggleVerbTable=function(){
+  window.toggleVerbTable=async function(){
+    await window.VOCMorphology?.ready;
     const item=trainingItems[currentIndex],panel=get("verbTablePanel"),button=get("verbTableToggle");
     if(!item||item.kind!=="verbs")return;
     if(!panel.hidden){
@@ -922,7 +923,9 @@
     const part=entries.find(v=>v.kind==="verb-participle");
     const imperative=entries.find(v=>v.kind==="verb-imperative");
     const isFrench=activeBook()?.lang==="fr-FR";
-    const reference=isFrench?window.VOCFrenchReference?.conjugate(lemma):null;
+    const morphology=window.VOCMorphology?.conjugate(lemma,activeBook()?.lang);
+    const curated=isFrench?window.VOCFrenchReference?.conjugate(lemma):null;
+    const reference=curated||(morphology?{...morphology,pastParticiple:morphology.participle}:null);
     const grammar=base?.regularity||paradigm?.regularity||reference?.regularity||"";
     const missing="– (noch nicht erfasst)";
     const heading=document.createElement("h4");
@@ -968,6 +971,14 @@
       ]){
         const entry=entries.find(v=>v.kind===kind);
         if(entry)row(label+" : "+entry.foreign,entry.german||missing);
+        else {
+          const value=kind==="verb-principal"?morphology?.principalParts?.filter(Boolean).join(" / "):
+            kind==="verb-participle"?morphology?.participle:
+            (kind==="verb-ing"&&activeBook()?.lang==="en-US")||
+            (kind==="verb-gerund"&&["es-ES","pt-PT"].includes(activeBook()?.lang))?morphology?.presentParticiple:
+            kind==="verb-imperative"?(Array.isArray(morphology?.imperative)?morphology.imperative.join(" / "):morphology?.imperative):null;
+          if(value)row(label+" : "+value,missing);
+        }
       }
     }
     const tense=normalizeTense(item.verbTense);
@@ -980,19 +991,30 @@
     const order={"je":0,"j'":0,"tu":1,"il/elle/on":2,"nous":3,"vous":4,"ils/elles":5};
     filtered.sort((a,b)=>(order[String(a.person||"").toLowerCase()]??99)-
       (order[String(b.person||"").toLowerCase()]??99));
-    if(filtered.length){
+    const generated=paradigm?.forms?.[tense]||reference?.forms?.[tense]||morphology?.forms?.[tense];
+    const persons=reference?.persons||morphology?.persons||[];
+    if(generated){
+      const used=new Set();
+      generated.forEach((form,i)=>{
+        const saved=filtered.find(entry=>String(entry.person||"").toLowerCase()===String(persons[i]||"").toLowerCase())||
+          filtered.find(entry=>!entry.person&&!used.has(entry)&&(String(entry.foreign||"").endsWith(" "+form)||entry.foreign===form));
+        if(saved)used.add(saved);
+        row(saved?.foreign||(isFrench?frenchSurface(tense,i,form):persons[i]+" "+form),saved?.german||missing);
+      });
+      for(const entry of filtered)if(!used.has(entry))row(entry.foreign,entry.german||missing);
+    }else if(filtered.length){
       const seen=new Set();
       for(const entry of filtered){
         const key=String(entry.person||"")+"|"+String(entry.foreign||"");
         if(seen.has(key))continue;
         seen.add(key);row(entry.foreign,entry.german||missing);
       }
-    }else if(isFrench&&(paradigm?.forms?.[tense]||reference?.forms?.[tense])){
-      const names=["je","tu","il/elle/on","nous","vous","ils/elles"];
-      (paradigm?.forms?.[tense]||reference.forms[tense]).forEach((form,i)=>row(names[i]+" "+form,missing));
     }else row("Noch keine geprüften Formen",missing);
     table.append(tbody);
-    panel.replaceChildren(heading,table);
+    const note=document.createElement("p");
+    note.textContent=morphology?"Lokale Konjugation · fehlende Übersetzungen werden nicht als Lernkarten erzeugt."+(isFrench?" Zusammengesetzte Formen mit être: Genus/Numerus beachten.":""):
+      "Gespeicherte Formen / lokale Referenz"+(window.VOCMorphology?.state.status==="fallback"?" · Konjugationsmotor nicht verfügbar":"");
+    panel.replaceChildren(heading,table,note);
     panel.hidden=false;button.setAttribute("aria-expanded","true");
   };
 
