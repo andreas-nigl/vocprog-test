@@ -457,6 +457,8 @@
       }
       acceptScannedLanguage(parsedResponse.detected_language_code);
 
+      window.VOCGeneratedFrenchForms=0;
+      window.VOCScanVerificationWarnings=0;
       const verbBookSelected=isSelectedVerbBook();
       let addedCount=verbBookSelected?0:mergeVocabularies(newVocabs);
       saveToLocalStorage();
@@ -465,7 +467,7 @@
       updateScannedPagesUI();
       initPageInputAndSelectors();
       document.getElementById('rangeCard').classList.remove('hidden');
-      status.innerText = `${addedCount} neue Vokabeln, ${baseVerbs} neue Infinitive, ${window.VOCGeneratedFrenchForms||0} unabhängig abgeglichene Formen und ${countConjugations} gedruckte Konjugationsformen gespeichert. ${window.VOCScanVerificationWarnings||0} widersprüchliche Formen zurückgewiesen. Noch nicht übersetzte oder nicht unabhängig bestätigte Formen bleiben vorerst von der Abfrage ausgeschlossen.`;
+      status.innerText = window.describeVOCScan({words:addedCount, infinitives:baseVerbs, conjugations:countConjugations, language:parsedResponse.detected_language_code});
       rawImages = [];
       renderGallery();
     } catch (err) {
