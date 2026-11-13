@@ -1,4 +1,4 @@
-const CACHE="vocprog-staging-20261112-v10";
+const CACHE="vocprog-staging-20261113-v11";
 const ASSETS=["./","./index.html","./manifest.json","./vocprog-enhancements.js","./vocprog-fr-reference.js","./vocprog-enhancements.css","./favicon.svg"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
