@@ -83,11 +83,36 @@
     };
   }
 
+  // Curated venir paradigm: show compact gender/number agreement for être.
+  // Compound forms are display-only: OCR validation needs actual subject agreement.
+  function venir() {
+    const participle = "venu";
+    const agreement = "venu(e)(s)";
+    const simple = {
+      "présent": ["viens","viens","vient","venons","venez","viennent"],
+      "imparfait": ["venais","venais","venait","venions","veniez","venaient"],
+      "futur simple": ["viendrai","viendras","viendra","viendrons","viendrez","viendront"],
+      "conditionnel présent": ["viendrais","viendrais","viendrait","viendrions","viendriez","viendraient"],
+      "subjonctif présent": ["vienne","viennes","vienne","venions","veniez","viennent"]
+    };
+    const suffixes = ["(e)","(e)","(e)","(e)s","(e)(s)","(e)s"];
+    return {
+      infinitive:"venir",regularity:"irrég.",orthographicException:null,
+      auxiliary:"être",pastParticiple:participle,agreement,
+      imperative:["viens","venons","venez"],
+      forms:{
+        ...simple,
+        "passé composé":ETRE_PRESENT.map((aux,i)=>aux+" "+participle+suffixes[i]),
+        "plus-que-parfait":ETRE_IMPERFECT.map((aux,i)=>aux+" "+participle+suffixes[i])
+      }
+    };
+  }
+
   const KNOWN_REGULAR = new Set(["parler", "manger", "commencer"]);
 
   function conjugate(infinitive) {
     const word = String(infinitive || "").normalize("NFC").trim().toLocaleLowerCase("fr");
-    const data = word === "aller" ? aller() :
+    const data = word === "aller" ? aller() : word === "venir" ? venir() :
       KNOWN_REGULAR.has(word) ? regularEr(word) : null;
     if (!data) return null;
     return {
@@ -95,7 +120,7 @@
       persons: [...PERSONS],
       availableTenses: [...TENSES],
       source: "voc-fr-verified-rules-v1",
-      coverage: "four-verbs-only"
+      coverage: "five-verbs-only"
     };
   }
 
@@ -109,7 +134,10 @@
 
   function checkForm(infinitive, tense, personIndex, candidate) {
     const data = conjugate(infinitive);
-    const row = data?.forms?.[String(tense || "").trim().toLocaleLowerCase("fr")];
+    const tenseKey=String(tense||"").trim().toLocaleLowerCase("fr");
+    if(data?.infinitive==="venir"&&["passé composé","plus-que-parfait"].includes(tenseKey))
+      return {status:"not-verified",reason:"agreement-requires-subject-context"};
+    const row = data?.forms?.[tenseKey];
     if (!row || !Number.isInteger(personIndex) || personIndex < 0 || personIndex > 5)
       return {status: "not-verified", reason: "unsupported-verb-tense-or-person"};
     const expected = row[personIndex];
@@ -120,7 +148,7 @@
 
   root.VOCFrenchReference = Object.freeze({
     conjugate, checkForm, normalizeForm,
-    supported: Object.freeze(["aller", "parler", "manger", "commencer"]),
+    supported: Object.freeze(["aller", "parler", "manger", "commencer", "venir"]),
     tenses: TENSES
   });
 })(typeof window === "undefined" ? globalThis : window);
