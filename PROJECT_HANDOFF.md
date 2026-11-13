@@ -1,3 +1,10 @@
+## 2026-11-13 – Scanmeldung und Abfrageansicht korrigiert
+
+- Nutzer bestätigt 33 vorhandene Verben; Null-Neuzugangsmeldung ist kein Beleg für Datenverlust. Scanmeldung trennt neue Einträge vom vorhandenen sprachweiten Verbenbestand, blendet Null-Warnungen aus und erklärt fehlende Übersetzungen.
+- Scanbezogene Zähler werden vor jedem Import zurückgesetzt. Keine Änderungen an gespeicherten Datensätzen oder Konjugationsregeln.
+- Synchronisierung darf den Lernbereich während einer Abfrage nicht einblenden: Sichtbarkeitsprüfung plus CSS-Schutz. Offlinecache v14.
+- Vorheriger Upload e3cc521 erfolgreich veröffentlicht, WASM/Adapter online hashidentisch; 50 Tests und Training/Tabelle/Neuladen im Browser geprüft. Aktuelle Änderung: gezielte Regressionen und Browserprüfung erforderlich; kein echter kostenpflichtiger OCR-Aufruf ohne Scanmaterial/API.
+
 ## 2026-11-13 – WASM-Integration lokal fertig, Veröffentlichung blockiert
 
 - Ausgangsbasis Entwicklung `9b223a4`, Test `043141c`; Live unverändert.
