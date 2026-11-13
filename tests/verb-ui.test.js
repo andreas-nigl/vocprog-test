@@ -34,13 +34,14 @@ test("Per-page verb references start at V1 and do not inherit OCR gaps",()=>{
     {bookId:"fr",page:"156",kind:"verb-infinitive",verbId:"manger",refVocab:"S156 V104"},
     {bookId:"fr",page:"157",kind:"verb-infinitive",verbId:"aller",refVocab:"S157 V26"}
   ];
-  const f=new Function("allVocab","get","activeBook","bookKind","baseVerbKinds","normalizeTense",
+  const f=new Function("allVocab","get","activeBook","bookKind","baseVerbKinds","normalizeTense","window",
     source+"return selectedVerbEntries;")(
     ()=>data,get,()=>({id:"fr",kind:"verbs"}),()=> "verbs",
-    new Set(["verb-infinitive"]),x=>String(x||"").toLowerCase()
+    new Set(["verb-infinitive"]),x=>String(x||"").toLowerCase(),
+    {VOCVerbDatabase:{lemmaOf:v=>v.verbId||v.infinitive||v.lemma||v.foreign}}
   );
   assert.deepEqual(f().map(x=>x.refVocab),[
-    "S156 V1","S156 V1","S156 V2","S157 V1"
+    "S156 V1","S156 V2","S157 V1"
   ]);
   assert.equal(data[0].refVocab,"S156 V62","stored references must remain unchanged");
 });
@@ -128,10 +129,11 @@ test("Trainer close remains in the right grid column when table is hidden",()=>{
   assert.match(css,/\.trainer-top-row > button:last-child \{grid-column:3;justify-self:end\}/);
   assert.match(css,/#verbTableToggle\.icon-btn \{grid-column:2;grid-row:1\}/);
 });
-test("Verb table uses curated French reference for missing base forms",()=>{
-  assert.match(code,/const curated=isFrench\?window\.VOCFrenchReference\?\.conjugate\(lemma\):null/);
-  assert.match(code,/reference\?\.agreement\|\|reference\?\.pastParticiple/);
-  assert.match(code,/Array\.isArray\(reference\?\.imperative\)/);
+test("Verb table reads only prepared data, with no conjugation on opening",()=>{
+  const source=fragment("  window.toggleVerbTable=","  function validMerge");
+  assert.match(source,/verbDatabase\.get\(item.bookId\)/);
+  assert.doesNotMatch(source,/\.conjugate\(|VOCMorphology/);
+  assert.match(source,/prepared\.cards\[tense\]/);
 });
 
 test("Repeat scan reports existing unique verbs without zero conflict warnings",()=>{

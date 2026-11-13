@@ -4,6 +4,7 @@ const test = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
 require("../vocprog-wasm-adapter.js");
+require("../vocprog-verb-database.js");
 const root = path.join(__dirname, "..");
 const loaded = (async () => {
   const source = fs.readFileSync(path.join(root, "vendor/ablaut/ablaut.js"), "utf8");
@@ -43,8 +44,10 @@ test("Real table UI fills missing persons and keeps stored German", async () => 
     {bookId:"fr",kind:"verb-form",verbId:"finir",tense:"présent",person:"je",foreign:"je finis",german:"ich beende"}
   ];
   const window = {VOCMorphology:{ready:Promise.resolve(),conjugate:(w,l)=>engine.conjugate(w,l),state:{status:"ready"}}};
-  const run = new Function("window","document","get","trainingItems","currentIndex","allVocab","specials","activeBook","LANGS","TENSES","normalizeTense","frenchSurface",fragment);
-  run(window,document,id=>id==="verbTablePanel"?panel:new Element(),
+  const verbDatabase=globalThis.VOCVerbDatabase.create({getItem:()=>null,setItem:()=>{}},(w,l)=>engine.conjugate(w,l));
+  verbDatabase.prepare({id:"fr",lang:"fr-FR"},entries,[],["présent"]);
+  const run = new Function("verbDatabase","window","document","get","trainingItems","currentIndex","allVocab","specials","activeBook","LANGS","TENSES","normalizeTense","frenchSurface",fragment);
+  run(verbDatabase,window,document,id=>id==="verbTablePanel"?panel:new Element(),
     [{kind:"verbs",verbId:"finir",verbLemma:"finir",bookId:"fr",verbTense:"présent"}],0,
     ()=>entries,[],()=>({lang:"fr-FR"}),{"fr-FR":"Französisch"},{"fr-FR":[["présent","Présent"]]},x=>x,(t,i,f)=>["je","tu","il/elle/on","nous","vous","ils/elles"][i]+" "+f);
   await window.toggleVerbTable();
