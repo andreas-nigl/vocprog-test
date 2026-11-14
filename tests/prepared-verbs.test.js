@@ -29,7 +29,7 @@ test("All seven tenses and six persons are persisted before exercise/table reads
   const engine = await loaded, disk = storage();
   const db = VOCVerbDatabase.create(disk, (w, l) => engine.conjugate(w, l));
   const original = JSON.stringify(entries);
-  const snapshot = db.prepare(book, entries, [], tenses);
+  const snapshot = await db.prepare(book, entries, [], tenses);
   assert.equal(Object.keys(snapshot.verbs).length, 3);
   for (const verb of Object.values(snapshot.verbs)) {
     assert.deepEqual(verb.missing, []);
@@ -44,34 +44,35 @@ test("All seven tenses and six persons are persisted before exercise/table reads
 test("Reload reads the database without any motor call; source changes invalidate it", async () => {
   const engine = await loaded, disk = storage();
   const first = VOCVerbDatabase.create(disk, (w, l) => engine.conjugate(w, l));
-  const snapshot = first.prepare(book, entries, [], tenses);
+  const snapshot = await first.prepare(book, entries, [], tenses);
   let calls = 0;
   const next = VOCVerbDatabase.create(disk, (w, l) => {calls++; return engine.conjugate(w, l);});
-  assert.deepEqual(next.prepare(book, entries, [], tenses), JSON.parse(JSON.stringify(snapshot)));
+  assert.equal(JSON.stringify(await next.prepare(book, entries, [], tenses)), JSON.stringify(snapshot));
   assert.equal(calls, 0);
   const changed = entries.map(entry => entry.id === "r" ? {...entry, german: "wiedergeben"} : entry);
-  assert.match(next.prepare(book, changed, [], tenses).verbs.rendre.cards.imparfait[0].grammaticalPrompt, /^wiedergeben/);
-  assert.equal(calls, 3);
+  assert.match((await next.prepare(book, changed, [], tenses)).verbs.rendre.cards.imparfait[0].grammaticalPrompt, /^wiedergeben/);
+  assert.equal(calls, 1);
 });
 test("A storage error cannot publish a ready in-memory database", async () => {
   const engine = await loaded;
   const db = VOCVerbDatabase.create({getItem: () => null, setItem: () => {throw Error("quota");}},
     (w, l) => engine.conjugate(w, l));
-  assert.throws(() => db.prepare(book, entries, [], tenses), /quota/);
+  await assert.rejects(() => db.prepare(book, entries, [], tenses), /quota/);
   assert.equal(db.get("fr"), null);
 });
 test("Unavailable forms remain missing and can recover after the motor becomes available", async () => {
   const engine = await loaded;
   let available = false;
   const db = VOCVerbDatabase.create(storage(), (w, l) => available ? engine.conjugate(w, l) : null);
-  assert.equal(db.prepare(book, entries, [], tenses).verbs.rendre.missing.length, 7);
+  assert.equal((await db.prepare(book, entries, [], tenses)).verbs.rendre.missing.length, 7);
   available = true;
-  assert.deepEqual(db.prepare(book, entries, [], tenses).verbs.rendre.missing, []);
+  db.retryPending(book.id);
+  assert.deepEqual((await db.prepare(book, entries, [], tenses)).verbs.rendre.missing, []);
 });
 test("French accepted answers resolve grouped subjects and agreement without accepting wrong gender", async () => {
   const engine = await loaded;
   const db = VOCVerbDatabase.create(storage(), (w, l) => engine.conjugate(w, l));
-  const snapshot = db.prepare(book, [{...entries[0], infinitive: "aller", foreign: "aller"}], [], tenses);
+  const snapshot = await db.prepare(book, [{...entries[0], infinitive: "aller", foreign: "aller"}], [], tenses);
   const cards = snapshot.verbs.aller.cards["passé composé"];
   assert.ok(cards[0].acceptedForeign.includes("je suis allée"));
   assert.ok(cards[2].acceptedForeign.includes("elle est allée"));

@@ -1,8 +1,8 @@
 /* Derived, local-only conjugation database. Original vocabulary is never changed. */
 (function (root) {
   "use strict";
-  const VERSION = "ablaut-0.11.0-prepared-v1";
-  const KEY = "vocprog_v2_prepared_verbs_v1";
+  const VERSION = "ablaut-0.11.0-bilingual-v2";
+  const KEY = "vocprog_v2_verb_records_v2";
   const normal = value => String(value || "").trim().normalize("NFC").toLocaleLowerCase();
   const lemmaOf = entry => normal(entry.infinitive || entry.lemma || entry.verbId ||
     (entry.kind === "verb-infinitive" ? entry.foreign : ""));
@@ -98,32 +98,64 @@
     return {version: VERSION, bookId: book.id, language: book.lang, verbs};
   }
 
-  function create(storage, morphology, reference) {
-    let persisted;
-    try { persisted = JSON.parse(storage.getItem(KEY) || "{}"); } catch { persisted = {}; }
-    if (!persisted || typeof persisted !== "object" || Array.isArray(persisted)) persisted = {};
+  function create(storage, morphology, reference, enrich) {
+    let records = Object.create(null);
     const snapshots = new Map();
+    const normalKey = (language, lemma, german) => [language, lemma, normal(german)].join("|");
+    function hydrate() {
+      let incoming;
+      try { incoming = JSON.parse(storage.getItem(KEY) || "{}"); } catch { return; }
+      if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) return;
+      for (const [key, value] of Object.entries(incoming)) {
+        if (value?.version !== VERSION || typeof value.lemma !== "string" ||
+            !value.verb || typeof value.verb.cards !== "object" ||
+            key !== normalKey(value.language, value.lemma, value.german)) continue;
+        if (!records[key] || (!records[key].ready && value.ready)) records[key] = value;
+      }
+    }
+    hydrate();
     return Object.freeze({
-      prepare(book, entries, paradigms, tenses) {
-        const input = signature(book, entries, paradigms, tenses);
-        const complete = snapshot => snapshot?.verbs &&
-          Object.values(snapshot.verbs).every(verb => verb.missing?.length === 0);
-        if (snapshots.get(book.id)?.signature === input && complete(snapshots.get(book.id)))
-          return snapshots.get(book.id);
-        const cached = persisted[book.id];
-        let snapshot = cached?.signature === input && cached?.version === VERSION && complete(cached) ? cached : null;
-        if (!snapshot) {
-          snapshot = {...build(book, entries, paradigms, tenses, morphology, reference), signature: input};
-          const next = {...persisted, [book.id]: snapshot};
-          // Do not declare readiness if persistence fails (e.g. quota exceeded).
-          storage.setItem(KEY, JSON.stringify(next));
-          persisted = next;
+      async prepare(book, entries, paradigms, tenses) {
+        hydrate();
+        const verbs = Object.create(null), next = {...records};
+        let changed = false;
+        for (const lemma of [...new Set(entries.map(lemmaOf).filter(Boolean))]) {
+          const source = entries.filter(entry => lemmaOf(entry) === lemma);
+          const base = source.find(entry => entry.kind === "verb-infinitive");
+          const german = String(base?.german || "").trim();
+          const key = normalKey(book.lang, lemma, german);
+          let record = records[key];
+          if (!record) {
+            const result = build(book, source, paradigms, tenses, morphology, reference);
+            let verb = result.verbs[lemma];
+            if (enrich) verb = await enrich(verb, book.lang, morphology);
+            verb.missing = tenses.filter(tense => (!Array.isArray(verb.cards[tense]) || verb.cards[tense].length !== 6) ||
+              (enrich && verb.cards[tense].some(card => !card.german ||
+                card.foreignVerification?.status !== "reference-matched" ||
+                card.germanVerification?.status !== "reference-matched")));
+            record = {version: VERSION, key, bookId: book.id, language: book.lang, lemma, german,
+              verb, ready: verb.missing.length === 0, checkedAt: new Date().toISOString()};
+            next[key] = record; changed = true;
+          }
+          verbs[lemma] = record.verb;
         }
+        if (changed) {
+          // Publish neither a ready snapshot nor new records before durable storage succeeds.
+          storage.setItem(KEY, JSON.stringify(next));
+          records = next;
+        }
+        const snapshot = {version: VERSION, bookId: book.id, language: book.lang, verbs};
         snapshots.set(book.id, snapshot);
         return snapshot;
+      },
+      retryPending(bookId) {
+        const next = Object.fromEntries(Object.entries(records).filter(([, value]) =>
+          value.bookId !== bookId || value.ready));
+        storage.setItem(KEY, JSON.stringify(next));
+        records = next;
       },
       get(bookId) { return snapshots.get(bookId) || null; }
     });
   }
-  root.VOCVerbDatabase = Object.freeze({create, lemmaOf, frenchSurface});
+  root.VOCVerbDatabase = Object.freeze({create, lemmaOf, frenchSurface, acceptedFrench});
 })(typeof window === "undefined" ? globalThis : window);

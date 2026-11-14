@@ -10,10 +10,11 @@
 
   const CODE = Object.freeze({
     "fr-FR": "fra", "en-US": "eng", "es-ES": "spa",
-    "pt-PT": "por", "nl-NL": "nld"
+    "pt-PT": "por", "nl-NL": "nld", "de-DE": "deu"
   });
 
   const PERSONS = Object.freeze({
+    "de-DE": ["ich", "du", "er/sie/es", "wir", "ihr", "sie/Sie"],
     "fr-FR": ["je", "tu", "il/elle/on", "nous", "vous", "ils/elles"],
     "en-US": ["I", "you", "he/she/it", "we", "you", "they"],
     "es-ES": ["yo", "tú", "él/ella/usted", "nosotros", "vosotros", "ellos/ellas/ustedes"],
@@ -22,6 +23,11 @@
   });
 
   const SIX_MAP = Object.freeze({
+    "de-DE": {
+      "präsens": "present", "präteritum": "preterite", "perfekt": "perfect",
+      "plusquamperfekt": "pluperfect", "futur i": "future1",
+      "konjunktiv i": "konjunktiv1", "konjunktiv ii": "konjunktiv2", "würde-form": "wuerde"
+    },
     "fr-FR": {
       "présent": "present", "imparfait": "imperfect",
       "passé composé": "passeCompose",

@@ -18,8 +18,8 @@ test("all inline and extension JavaScript parses",()=>{
 });
 
 test("local French reference loads before extension and is offline cached",()=>{
-  assert.ok(html.indexOf('src="vocprog-fr-reference.js"')<
-    html.indexOf('src="vocprog-enhancements.js"'));
+  assert.ok(html.indexOf('src="vocprog-fr-reference.js')<
+    html.indexOf('src="vocprog-enhancements.js'));
   assert.match(worker,/vocprog-fr-reference\.js/);
 });
 

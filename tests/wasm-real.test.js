@@ -45,7 +45,7 @@ test("Real table UI fills missing persons and keeps stored German", async () => 
   ];
   const window = {VOCMorphology:{ready:Promise.resolve(),conjugate:(w,l)=>engine.conjugate(w,l),state:{status:"ready"}}};
   const verbDatabase=globalThis.VOCVerbDatabase.create({getItem:()=>null,setItem:()=>{}},(w,l)=>engine.conjugate(w,l));
-  verbDatabase.prepare({id:"fr",lang:"fr-FR"},entries,[],["présent"]);
+  await verbDatabase.prepare({id:"fr",lang:"fr-FR"},entries,[],["présent"]);
   const run = new Function("verbDatabase","window","document","get","trainingItems","currentIndex","allVocab","specials","activeBook","LANGS","TENSES","normalizeTense","frenchSurface",fragment);
   run(verbDatabase,window,document,id=>id==="verbTablePanel"?panel:new Element(),
     [{kind:"verbs",verbId:"finir",verbLemma:"finir",bookId:"fr",verbTense:"présent"}],0,
