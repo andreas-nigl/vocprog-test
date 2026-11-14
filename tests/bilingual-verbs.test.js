@@ -99,3 +99,11 @@ test("A deliberate engine discrepancy is corrected from separate dictionary data
   assert.equal(result.verbs.venir.cards.présent[0].german,"ich komme");
   assert.ok(result.verbs.venir.germanEngineCorrections.some(value=>value.tenses.includes("präsens")));
 });
+
+test("Overlapping preparation requests reuse the first result instead of checking twice",async()=>{
+  const run=await database(),words=[entry("rendre","zurückgeben")];
+  const [a,b]=await Promise.all([run.db.prepare(book,words,[],tenses),run.db.prepare(book,words,[],tenses)]);
+  const single=await database();await single.db.prepare(book,words,[],tenses);
+  assert.deepEqual(run.counters,single.counters);
+  assert.equal(a.verbs.rendre,b.verbs.rendre);
+});

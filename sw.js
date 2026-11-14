@@ -1,5 +1,5 @@
-const CACHE="vocprog-staging-20261114-v16";
-const ASSETS=["./","./index.html","./manifest.json","./vocprog-enhancements.js?v=0.5.3","./vocprog-fr-reference.js?v=0.5.3","./vocprog-enhancements.css?v=0.5.3","./favicon.svg","./vocprog-wasm-adapter.js?v=0.5.3","./vocprog-morphology.js?v=0.5.3","./vocprog-independent-reference.js?v=0.5.3","./vocprog-german-forms.js?v=0.5.3","./reference/manifest.json?v=reference-20261114-1","./vocprog-verb-database.js?v=0.5.3","./vendor/ablaut/ablaut.js","./vendor/ablaut/ablaut_bg.wasm"];
+const CACHE="vocprog-staging-20261114-v17";
+const ASSETS=["./","./index.html","./manifest.json","./vocprog-enhancements.js?v=0.5.3-2","./vocprog-fr-reference.js?v=0.5.3-2","./vocprog-enhancements.css?v=0.5.3-2","./favicon.svg","./vocprog-wasm-adapter.js?v=0.5.3-2","./vocprog-morphology.js?v=0.5.3-2","./vocprog-independent-reference.js?v=0.5.3-2","./vocprog-german-forms.js?v=0.5.3-2","./reference/manifest.json?v=reference-20261114-1","./vocprog-verb-database.js?v=0.5.3-2","./vendor/ablaut/ablaut.js","./vendor/ablaut/ablaut_bg.wasm"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });

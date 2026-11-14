@@ -24,6 +24,7 @@
   let lastShownEvent = null;
   let syncTimer = null;
   let syncing = false;
+  let initialSyncReady=Promise.resolve();
   let scanQueueReady = false;
   let dbPromise;
 
@@ -953,6 +954,7 @@
     preparingVerbData=true;preparationError="";
     updateVerbReadiness();
     const ready=Promise.resolve().then(async()=>{
+      await initialSyncReady;
       await window.VOCMorphology?.ready;
       if(revision!==preparationRevision)return;
       const entries=allVocab();
@@ -1468,6 +1470,7 @@
     save(STORE+"_events",history);
     ensureMigration();
     consolidateVerbBooks();
+    initialSyncReady=Promise.race([syncNow(),new Promise(resolve=>setTimeout(resolve,5000))]);
     if(chosenBook&&books.some(b=>b.id===chosenBook&&b.lang!=="la-LA"))chooseBook(chosenBook);else refreshBookChoices();
     updateOnlineState();
     tempImages().then(images=>{
@@ -1479,7 +1482,6 @@
     if("serviceWorker" in navigator&&location.protocol==="https:"){
       navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("SW registration failed",e));
     }
-    syncNow();
     setInterval(()=>{if(navigator.onLine)syncNow();},15*60*1000);
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",onReady);

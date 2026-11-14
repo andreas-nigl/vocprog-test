@@ -101,6 +101,7 @@
   function create(storage, morphology, reference, enrich) {
     let records = Object.create(null);
     const snapshots = new Map();
+    let queue = Promise.resolve();
     const normalKey = (language, lemma, german) => [language, lemma, normal(german)].join("|");
     function hydrate() {
       let incoming;
@@ -115,7 +116,8 @@
     }
     hydrate();
     return Object.freeze({
-      async prepare(book, entries, paradigms, tenses) {
+      prepare(book, entries, paradigms, tenses) {
+        const run = async () => {
         hydrate();
         const verbs = Object.create(null), next = {...records};
         let changed = false;
@@ -147,6 +149,10 @@
         const snapshot = {version: VERSION, bookId: book.id, language: book.lang, verbs};
         snapshots.set(book.id, snapshot);
         return snapshot;
+        };
+        const pending = queue.then(run, run);
+        queue = pending.catch(() => {});
+        return pending;
       },
       retryPending(bookId) {
         const next = Object.fromEntries(Object.entries(records).filter(([, value]) =>
