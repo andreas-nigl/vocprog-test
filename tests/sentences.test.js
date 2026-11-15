@@ -89,10 +89,10 @@ function syncClient(remote,initial=[]){
  if(state.duringPost){const action=state.duringPost;state.duringPost=null;action();}
  return {ok:true};
  }
- return {ok:true,json:async()=>JSON.parse(JSON.stringify([...remote.values()]))};
+ return {ok:true,json:async()=>state.dropConfirmation&&_url.includes('record_id=in.')?[]:JSON.parse(JSON.stringify([...remote.values()]))};
  };
  ${fragment}
- return {sync:syncNow,queue:scheduleSync,entries:()=>specials,add:item=>specials.push(item)};`);
+ return {sync:syncNow,queue:scheduleSync,entries:()=>specials,add:item=>specials.push(item),error:()=>lastError};`);
  return {state,...setup(state,remote)};
 }
 test('Actual synchronization serializes sentence IDs and vocabulary IDs and restores them on a second client',async()=>{
@@ -107,4 +107,30 @@ test('A sentence saved during an active server POST queues a following synchroni
  client.state.duringPost=()=>{client.add({...sentence,id:'later',updatedAt:'2026-11-15T10:01:00Z'});client.queue();};
  await client.sync();assert.equal(client.state.timers.length,1);
  await client.state.timers.shift()();assert.ok(remote.has('special:later'));
+});
+
+test('Two explicit generations for the same vocabulary append, count, and survive serialized reopening',async()=>{
+ let iteration=0;
+ const h=harness({cached:[sentence],fetcher:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify([{...sentence,german:'Zusatz '+(++iteration),foreign:'Phrase '+iteration}])}]}}]})})});
+ await h.run(words,h.get('newSentencesBtn'),false,true);
+ await h.run(words,h.get('newSentencesBtn'),false,true);
+ assert.equal(h.state.specials.length,3);
+ assert.equal(h.state.saved,2);
+ assert.equal(api.eligible(JSON.parse(JSON.stringify(h.state.specials)),'book',words).length,3);
+ const fragment=source.slice(source.indexOf('  function vocabularyBookSummary('),source.indexOf('  function updateVerbReadiness('));
+ const summarize=new Function(fragment+'return vocabularyBookSummary;')();
+ assert.match(summarize(words,h.state.specials),/3 gespeicherte KI-Sätze/);
+ assert.equal(h.state.cards.length,1,'New sentences shows only the newly added batch');
+});
+test('Duplicate-only generation reports zero additions without replacing or shuffling the existing exercise',async()=>{
+ const h=harness({cached:[sentence],fetcher:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify([sentence])}]}}]})})});
+ await h.run(words,h.get('newSentencesBtn'),false,true);
+ assert.equal(h.state.saved,0);assert.equal(h.state.specials.length,1);assert.equal(h.state.entered,0);
+ assert.match(h.state.alerts[0],/Keine zusätzlichen Sätze gespeichert/);
+});
+
+test('Server confirmation failure remains visible instead of declaring synchronization successful',async()=>{
+ const remote=new Map(),client=syncClient(remote,[{...sentence,updatedAt:'2026-11-15T10:00:00Z'}]);
+ client.state.dropConfirmation=true;await client.sync();
+ assert.match(client.error(),/Nicht alle neuen KI-Sätze/);
 });

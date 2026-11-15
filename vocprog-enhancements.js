@@ -771,6 +771,7 @@
   };
   const oldGenerate=generateAllCombinedSentences;
   let sentenceJob=null;
+  let lastSentenceAddition=null;
   function cancelSentenceGeneration(){
     if(!sentenceJob)return;
     sentenceJob.controller.abort();sentenceJob=null;
@@ -812,7 +813,8 @@
       if(!apiKey)throw Error("Bitte einen API-Key eingeben.");
       const language=activeBook()?.lang||get("targetLang").value;
       const words=slice.map(v=>({id:String(v.id||v.refVocab),foreign:v.foreign,german:v.german}));
-      const prompt="Erstelle kurze Übungssätze auf "+language+" mit deutscher Übersetzung. Decke alle übergebenen Vokabeln ab. Maximal 10 Wörter und 4 Lernvokabeln pro Satz. Markiere die Lernwörter im fremdsprachigen Satz mit <u>. Jeder Satz muss in vocabIds genau die IDs der darin tatsächlich verwendeten Lernvokabeln nennen. Verwende nur übergebene IDs. Antworte ausschließlich als JSON-Liste: [{german: Deutscher Satz, foreign: Fremdsprachiger Satz, vocabIds: [ID]}]. Vokabeln: "+JSON.stringify(words);
+      const previousSentences=window.VOCSentences.stored(specials,job.bookId);
+      const prompt="Erstelle kurze Übungssätze auf "+language+" mit deutscher Übersetzung. Decke alle übergebenen Vokabeln ab. Maximal 10 Wörter und 4 Lernvokabeln pro Satz. Markiere die Lernwörter im fremdsprachigen Satz mit <u>. Jeder Satz muss in vocabIds genau die IDs der darin tatsächlich verwendeten Lernvokabeln nennen. Verwende nur übergebene IDs. Antworte ausschließlich als JSON-Liste: [{german: Deutscher Satz, foreign: Fremdsprachiger Satz, vocabIds: [ID]}]. Vokabeln: "+JSON.stringify(words)+" Erzeuge andere Sätze als diese bereits gespeicherten Satzpaare: "+JSON.stringify(previousSentences.slice(-100).map(s=>({german:s.german,foreign:s.foreign})));
       const response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key="+encodeURIComponent(apiKey),{
         method:"POST",signal:controller.signal,headers:{"Content-Type":"application/json"},
         body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
@@ -822,14 +824,19 @@
       const output=(data.candidates?.[0]?.content?.parts||[]).map(part=>part.text||"").join("");
       const items=window.VOCSentences.validate(JSON.parse(output.replace(/```json|```/g,"").trim()),slice);
       const existing=new Set(window.VOCSentences.stored(specials,job.bookId).map(window.VOCSentences.pairKey));
-      const when=new Date().toISOString();
+      const when=new Date().toISOString(),added=[];
       for(const item of items){
         const key=window.VOCSentences.pairKey(item);if(existing.has(key))continue;existing.add(key);
-        specials.push({...item,id:id(),bookId:job.bookId,kind:"ai-sentence",lang:language,
+        added.push({...item,id:id(),bookId:job.bookId,kind:"ai-sentence",lang:language,
           page:String(slice[0]?.page||"?"),pages:[...new Set(slice.filter(v=>item.vocabIds.includes(String(v.id||v.refVocab))).map(v=>String(v.page)))],updatedAt:when});
       }
-      persistMetadata();updateVerbReadiness();
-      sentenceCards(window.VOCSentences.eligible(specials,job.bookId,slice),random);
+      if(!added.length){alert("Die KI hat nur bereits gespeicherte Sätze geliefert. Keine zusätzlichen Sätze gespeichert.");return;}
+      const previousLength=specials.length;
+      specials.push(...added);
+      try{persistMetadata();}catch(error){specials.splice(previousLength);throw error;}
+      lastSentenceAddition={bookId:job.bookId,count:added.length};
+      updateVerbReadiness();
+      sentenceCards(force?added:window.VOCSentences.eligible(specials,job.bookId,slice),random);
     }catch(error){
       if(error.name!=="AbortError")alert(error.message);
     }finally{
@@ -1006,6 +1013,7 @@
       button.textContent=sentenceJob?"Generierung abbrechen":"▶ Abfrage starten";
       status.textContent=book?vocabularyBookSummary(allVocab().filter(entry=>entry.bookId===book.id),
         specials.filter(entry=>entry.bookId===book.id)):"";
+      if(lastSentenceAddition?.bookId===book?.id)status.textContent+=" "+lastSentenceAddition.count+" neu hinzugefügt.";
       return;
     }
     status.hidden=false;
@@ -1511,6 +1519,14 @@
           body:JSON.stringify(outgoing.slice(i,i+100))
         });
         if(!res.ok)throw Error("Öffentlicher Schreibzugriff nicht eingerichtet (HTTP "+res.status+").");
+        const sentenceIds=outgoing.slice(i,i+100).filter(row=>row.payload?.kind==="ai-sentence").map(row=>row.record_id);
+        if(sentenceIds.length){
+          const query=new URLSearchParams({select:"record_id",record_id:"in.("+sentenceIds.join(",")+")"});
+          const confirmation=await publicFetch(table+"?"+query.toString(),{cache:"no-store"});
+          if(!confirmation.ok)throw Error("Speicherung der KI-Sätze konnte nicht bestätigt werden.");
+          const confirmed=await confirmation.json(),ids=new Set(confirmed.map(row=>row.record_id));
+          if(sentenceIds.some(id=>!ids.has(id)))throw Error("Nicht alle neuen KI-Sätze sind auf dem Server angekommen.");
+        }
       }
       lastSync=new Date().toISOString();localStorage.setItem(STORE+"_synced",lastSync);lastError="";
     }catch(e){lastError=e.message;console.warn("VOC Sync:",e);}
