@@ -762,7 +762,7 @@
   // Original nextCard and prevCard invoke showCard, which logs every displayed question.
   const oldStart=startTraining;
   startTraining=async function(e){
-    if(get("bookSelect")?.value)chooseBook(get("bookSelect").value);
+    if(get("bookSelect")?.value&&get("bookSelect").value!==chosenBook)chooseBook(get("bookSelect").value);
     // Avoid original implicit window.event bug for Gemini mix button.
     await oldStart(e);
   };
