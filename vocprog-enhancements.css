@@ -80,6 +80,8 @@ body.voc-training-active .voc-footer,body.voc-training-active .analysis-float-zo
 .verb-table-panel{width:100%;background:#fff;border:0;border-radius:16px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,.08);margin:0;overflow-x:auto;box-sizing:border-box}
 .verb-table-panel h4{margin:2px 0 10px}
 .verb-table-panel table{border-collapse:collapse;width:100%;font-size:.84rem}
+.verb-table-panel .verb-reference-note,.verb-table-panel .verb-reference-sources{font-size:.75rem;line-height:1.35}
+.verb-table-panel .verb-reference-sources a{font-size:inherit}
 .verb-table-panel th,.verb-table-panel td{text-align:left;border-bottom:1px solid var(--border);padding:6px 8px;vertical-align:top}
 .verb-table-panel th:first-child,.verb-table-panel td:first-child{width:55%}
 .voc-analysis-section h3{cursor:pointer;user-select:none;margin-bottom:4px}

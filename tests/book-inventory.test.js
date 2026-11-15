@@ -12,7 +12,7 @@ test("Book inventory counts vocabulary, complete sentence pairs and unique cache
   const caches=[{items:[{prompt:"Hallo",target:"Salut"},{prompt:"Salut",target:"Hallo"}]},
     {kind:"prepared-verb",record:{}},{items:[{prompt:"unvollständig"}]}];
   assert.equal(summarize(entries,caches),"4 Vokabeln · 1 Buchsatz · 1 gespeicherter KI-Satz.");
-  assert.equal(summarize([],[]),"0 Vokabeln · 0 Buchsätze · 0 gespeicherte KI-Sätze.");
+  assert.equal(summarize([],[]),"0 Vokabeln · 0 Buchsätze.");
 });
 
 test("Starting in the already selected vocabulary book preserves the chosen card range",async()=>{

@@ -758,6 +758,7 @@
     originalExitTrainer();
     const table=get("verbTablePanel");if(table)table.hidden=true;
     document.body.classList.remove("voc-training-active");
+    updateVerbReadiness();
   };
   // Original nextCard and prevCard invoke showCard, which logs every displayed question.
   const oldStart=startTraining;
@@ -938,8 +939,8 @@
     const generated=new Set(caches.flatMap(cache=>Array.isArray(cache.items)?cache.items:[])
       .filter(item=>normalized(item.prompt)&&normalized(item.target)).map(item=>pair(item.prompt,item.target)));
     return entries.length+(entries.length===1?" Vokabel":" Vokabeln")+" · "+sentences.size+
-      (sentences.size===1?" Buchsatz":" Buchsätze")+" · "+generated.size+
-      (generated.size===1?" gespeicherter KI-Satz.":" gespeicherte KI-Sätze.");
+      (sentences.size===1?" Buchsatz":" Buchsätze")+(generated.size?" · "+generated.size+
+      (generated.size===1?" gespeicherter KI-Satz.":" gespeicherte KI-Sätze."):".");
   }
   function updateVerbReadiness(){
     const button=get("startTrainingBtn"),status=get("verbPreparationStatus");
@@ -1115,8 +1116,10 @@
     if(!cards.length)row("Keine vorbereiteten Formen",missing);
     table.append(tbody);
     const note=document.createElement("p");
+    note.className="verb-reference-note";
     note.textContent="Formen mit separaten Referenzdaten abgeglichen. Deutsche Bedeutung aus dem Buch; schulische Zeitformzuordnung. Subjonctif ist kontextabhängig.";
     const evidence=document.createElement("div");
+    evidence.className="verb-reference-sources";
     const sources=new Map((prepared.verificationSources||[]).map(source=>[source.url,source]));
     for(const source of sources.values()){
       if(!/^https:\/\//.test(source.url))continue;
