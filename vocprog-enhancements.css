@@ -133,3 +133,7 @@ body:has(#trainerCard:not(.hidden)) #rangeCard{display:none!important}
 /* Compact inventory directly below the learning start button, for every book. */
 #startTrainingBtn{margin-bottom:0}
 #verbPreparationStatus{margin:4px 0 0;font-size:.85rem;line-height:1.35;color:var(--text-muted)}
+
+.generation-busy{background:#94a3b8!important;color:#fff!important;cursor:pointer;opacity:.75}
+#newSentencesBtn{justify-self:center;width:auto;padding:0 10px;font-size:.85rem;white-space:nowrap}
+#newSentencesBtn[hidden]{display:none!important}

@@ -755,6 +755,7 @@
   };
   const originalExitTrainer=exitTrainer;
   exitTrainer=function(){
+    cancelSentenceGeneration();
     originalExitTrainer();
     const table=get("verbTablePanel");if(table)table.hidden=true;
     document.body.classList.remove("voc-training-active");
@@ -765,27 +766,82 @@
   startTraining=async function(e){
     if(get("bookSelect")?.value&&get("bookSelect").value!==chosenBook)chooseBook(get("bookSelect").value);
     // Avoid original implicit window.event bug for Gemini mix button.
+    if(get("studyMode").value==="ai_combined")return runSentenceTraining(sentenceSlice(),get("startTrainingBtn"),get("randomize").checked);
     await oldStart(e);
   };
   const oldGenerate=generateAllCombinedSentences;
-  generateAllCombinedSentences=async function(slice,btn,label,random){
-    const key=JSON.stringify(slice.map(v=>v.id||v.refVocab));
-    let cached=specials.find(x=>x.bookId===chosenBook&&x.key===key);
-    if(!navigator.onLine){
-      if(!cached)throw Error("KI-Mix wurde noch nicht gespeichert; Internet nötig.");
-      trainingItems=cached.items.map(x=>({...x}));
-      if(random)trainingItems.sort(()=>Math.random()-0.5);
-      btn.innerText=label;btn.disabled=false;
-      enterTraining();return;
+  let sentenceJob=null;
+  function cancelSentenceGeneration(){
+    if(!sentenceJob)return;
+    sentenceJob.controller.abort();sentenceJob=null;
+    for(const key of ["startTrainingBtn","newSentencesBtn"]){
+      const button=get(key);if(button){button.classList.remove("generation-busy");button.removeAttribute("aria-busy");button.disabled=false;button.textContent=key==="newSentencesBtn"?"Neue Sätze":"▶ Abfrage starten";}
     }
-    await oldGenerate(slice,btn,label,random);
-    const page=String(slice[0]?.page||"?");
-    trainingItems=trainingItems.map(x=>({...x,bookId:chosenBook,page:x.page||page,kind:"special",sourceId:x.ref||id()}));
-    if(!cached) {
-      cached={id:id(),bookId:chosenBook,key,page,items:trainingItems,updatedAt:new Date().toISOString()};
-      specials.push(cached);
-    } else {cached.items=trainingItems;cached.updatedAt=new Date().toISOString();}
-    persistMetadata();
+    updateVerbReadiness();
+  }
+  function sentenceSlice(){
+    const start=Number(get("startVocab").value),end=Number(get("endVocab").value);
+    return Number.isInteger(start)&&Number.isInteger(end)&&start<=end?filteredVocabList.slice(start,end+1):[];
+  }
+  function sentenceCards(sentences,random){
+    const reverse=get("direction").value==="foreign_to_de";
+    trainingItems=sentences.map(s=>({prompt:reverse?s.foreign:s.german,target:reverse?s.german:s.foreign,
+      pLang:reverse?s.lang:"de-DE",tLang:reverse?"de-DE":s.lang,
+      isHtmlPrompt:reverse,isHtmlTarget:!reverse,kind:"special",sourceId:s.id,
+      bookId:s.bookId,page:s.page,pages:s.pages,ref:s.ref||"KI-Satz"}));
+    if(random)trainingItems.sort(()=>Math.random()-0.5);
+    enterTraining();
+  }
+  async function runSentenceTraining(slice,button,random,force=false){
+    if(sentenceJob){cancelSentenceGeneration();return;}
+    if(!slice.length){alert("Bitte wähle gültige Start- und Stopp-Vokabeln aus.");return;}
+    const available=window.VOCSentences.eligible(specials,chosenBook,slice);
+    if(available.length&&!force){sentenceCards(available,random);return;}
+    if(!navigator.onLine){alert(force?"Für neue Sätze ist Internet nötig.":"Keine Sätze vorhanden.");return;}
+    const controller=new AbortController(),job={controller,bookId:chosenBook};sentenceJob=job;
+    button.disabled=false;button.classList.add("generation-busy");button.setAttribute("aria-busy","true");
+    button.textContent="Generierung abbrechen";
+    const timeout=setTimeout(()=>controller.abort(),90000);
+    try{
+      if(navigator.onLine)await initialSyncReady;
+      if(controller.signal.aborted)return;
+      const cached=window.VOCSentences.eligible(specials,job.bookId,slice);
+      if(cached.length&&!force){sentenceCards(cached,random);return;}
+      if(!navigator.onLine){alert("Keine Sätze vorhanden.");return;}
+      const apiKey=get("apiKey").value.trim();
+      if(!apiKey)throw Error("Bitte einen API-Key eingeben.");
+      const language=activeBook()?.lang||get("targetLang").value;
+      const words=slice.map(v=>({id:String(v.id||v.refVocab),foreign:v.foreign,german:v.german}));
+      const prompt="Erstelle kurze Übungssätze auf "+language+" mit deutscher Übersetzung. Decke alle übergebenen Vokabeln ab. Maximal 10 Wörter und 4 Lernvokabeln pro Satz. Markiere die Lernwörter im fremdsprachigen Satz mit <u>. Jeder Satz muss in vocabIds genau die IDs der darin tatsächlich verwendeten Lernvokabeln nennen. Verwende nur übergebene IDs. Antworte ausschließlich als JSON-Liste: [{german: Deutscher Satz, foreign: Fremdsprachiger Satz, vocabIds: [ID]}]. Vokabeln: "+JSON.stringify(words);
+      const response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key="+encodeURIComponent(apiKey),{
+        method:"POST",signal:controller.signal,headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+      if(!response.ok)throw Error("KI-Anfrage fehlgeschlagen (HTTP "+response.status+").");
+      const data=await response.json();
+      if(controller.signal.aborted||sentenceJob!==job)return;
+      const output=(data.candidates?.[0]?.content?.parts||[]).map(part=>part.text||"").join("");
+      const items=window.VOCSentences.validate(JSON.parse(output.replace(/```json|```/g,"").trim()),slice);
+      const existing=new Set(window.VOCSentences.stored(specials,job.bookId).map(window.VOCSentences.pairKey));
+      const when=new Date().toISOString();
+      for(const item of items){
+        const key=window.VOCSentences.pairKey(item);if(existing.has(key))continue;existing.add(key);
+        specials.push({...item,id:id(),bookId:job.bookId,kind:"ai-sentence",lang:language,
+          page:String(slice[0]?.page||"?"),pages:[...new Set(slice.filter(v=>item.vocabIds.includes(String(v.id||v.refVocab))).map(v=>String(v.page)))],updatedAt:when});
+      }
+      persistMetadata();updateVerbReadiness();
+      sentenceCards(window.VOCSentences.eligible(specials,job.bookId,slice),random);
+    }catch(error){
+      if(error.name!=="AbortError")alert(error.message);
+    }finally{
+      clearTimeout(timeout);
+      if(sentenceJob===job){sentenceJob=null;button.classList.remove("generation-busy");button.removeAttribute("aria-busy");button.disabled=false;button.textContent=button.id==="newSentencesBtn"?"Neue Sätze":"▶ Abfrage starten";updateVerbReadiness();}
+    }
+  }
+  generateAllCombinedSentences=async function(slice,button,_label,random){
+    return runSentenceTraining(slice,button,random);
+  };
+  window.newCombinedSentences=function(){
+    return runSentenceTraining(sentenceSlice(),get("newSentencesBtn"),get("randomize").checked,true);
   };
   function enterTraining(){
     currentIndex=0;
@@ -936,7 +992,7 @@
     const pair=(first,second)=>JSON.stringify([normalized(first),normalized(second)].sort());
     const sentences=new Set(entries.filter(entry=>normalized(entry.sentence_foreign)&&normalized(entry.sentence_german))
       .map(entry=>pair(entry.sentence_foreign,entry.sentence_german)));
-    const generated=new Set(caches.flatMap(cache=>Array.isArray(cache.items)?cache.items:[])
+    const generated=new Set(caches.flatMap(cache=>cache.kind==="ai-sentence"?[{prompt:cache.german,target:cache.foreign}]:Array.isArray(cache.items)?cache.items:[])
       .filter(item=>normalized(item.prompt)&&normalized(item.target)).map(item=>pair(item.prompt,item.target)));
     return entries.length+(entries.length===1?" Vokabel":" Vokabeln")+" · "+sentences.size+
       (sentences.size===1?" Buchsatz":" Buchsätze")+(generated.size?" · "+generated.size+
@@ -947,6 +1003,7 @@
     if(!button||!status)return;
     if(!isVerbBook()){
       const book=activeBook();button.disabled=false;status.hidden=!book;
+      button.textContent=sentenceJob?"Generierung abbrechen":"▶ Abfrage starten";
       status.textContent=book?vocabularyBookSummary(allVocab().filter(entry=>entry.bookId===book.id),
         specials.filter(entry=>entry.bookId===book.id)):"";
       return;
@@ -1027,6 +1084,7 @@
     if(item?.translationTask)get("promptText").textContent=item.prompt+" · "+item.translationTask;
     const isVerb=item?.kind==="verbs";
     get("verbTableToggle").hidden=!isVerb;
+    get("newSentencesBtn").hidden=item?.kind!=="special";
     const panel=get("verbTablePanel");panel.hidden=true;
     get("verbTableToggle").setAttribute("aria-expanded","false");
     panel.replaceChildren();
@@ -1431,7 +1489,7 @@
     }});
   }
   window.syncVocprog=syncNow;
-  let lastError="";
+  let lastError="",syncAgain=false;
   async function syncNow(){
     if(syncing||!navigator.onLine)return;
     syncing=true;renderStatus();
@@ -1456,9 +1514,10 @@
       }
       lastSync=new Date().toISOString();localStorage.setItem(STORE+"_synced",lastSync);lastError="";
     }catch(e){lastError=e.message;console.warn("VOC Sync:",e);}
-    finally{syncing=false;renderStatus();}
+    finally{syncing=false;renderStatus();if(syncAgain){syncAgain=false;scheduleSync();}}
   }
   function scheduleSync(){
+    if(syncing){syncAgain=true;return;}
     clearTimeout(syncTimer);
     if(navigator.onLine)syncTimer=setTimeout(syncNow,1300);
   }
@@ -1487,6 +1546,9 @@
     initialSyncReady=Promise.race([syncNow(),new Promise(resolve=>setTimeout(resolve,5000))]);
     if(chosenBook&&books.some(b=>b.id===chosenBook&&b.lang!=="la-LA"))chooseBook(chosenBook);else refreshBookChoices();
     updateOnlineState();
+    for(const key of ["studyMode","startVocab","endVocab","bookSelect","direction"])
+      get(key)?.addEventListener("change",()=>{cancelSentenceGeneration();updateVerbReadiness();});
+    window.addEventListener("offline",cancelSentenceGeneration);
     tempImages().then(images=>{
       if(Array.isArray(images)&&images.length&&!rawImages.length){
         rawImages=images;renderGallery();get("scanStatus").textContent="Nicht analysierte Scanbilder wiederhergestellt.";
