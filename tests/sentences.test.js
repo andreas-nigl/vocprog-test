@@ -20,6 +20,7 @@ test('Legacy batch retains both language directions and conservatively requires 
 test('Generation refuses unknown or missing vocabulary associations',()=>{
  assert.throws(()=>api.validate([{...sentence,vocabIds:['x']}],words));
  assert.throws(()=>api.validate([{...sentence,vocabIds:[]}],words));
+ assert.throws(()=>api.validate([{...sentence,vocabIds:['a']}],words));
  assert.deepEqual(api.validate([sentence],words)[0].vocabIds,['a','b']);
 });
 const source=fs.readFileSync(path.join(__dirname,'../vocprog-enhancements.js'),'utf8');

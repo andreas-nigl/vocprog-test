@@ -27,12 +27,15 @@
   function validate(items,entries){
     if(!Array.isArray(items)||!items.length)throw Error("Keine gültigen KI-Sätze erhalten.");
     const allowed=new Set(entries.map(v=>String(v.id||v.refVocab)));
-    return items.map(item=>{
+    const validated=items.map(item=>{
       const vocabIds=[...new Set((item.vocabIds||[]).map(String))];
       if(!text(item.german)||!text(item.foreign)||!vocabIds.length||vocabIds.some(id=>!allowed.has(id)))
         throw Error("KI-Satz enthält fehlende oder ungültige Vokabelzuordnungen.");
       return {...item,german:text(item.german),foreign:text(item.foreign),vocabIds};
     });
+    const covered=new Set(validated.flatMap(item=>item.vocabIds));
+    if([...allowed].some(id=>!covered.has(id)))throw Error("Die KI-Antwort deckt die ausgewählten Vokabeln nicht vollständig ab.");
+    return validated;
   }
   const api={stored,eligible,validate,pairKey};
   root.VOCSentences=api;
