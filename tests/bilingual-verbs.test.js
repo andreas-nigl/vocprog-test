@@ -107,3 +107,22 @@ test("Overlapping preparation requests reuse the first result instead of checkin
   assert.deepEqual(run.counters,single.counters);
   assert.equal(a.verbs.rendre,b.verbs.rendre);
 });
+
+test("Transient lookup failures are retried on reopen without rechecking completed records",async()=>{
+  const engine=await loaded,disk=storage();let failed=true,calls=0;
+  const db=VOCVerbDatabase.create(disk,(w,l)=>engine.conjugate(w,l),null,async verb=>{
+    calls++;
+    if(failed)verb.referenceError="Temporärer Ladefehler";
+    return verb;
+  });
+  const words=[entry("rendre","zurückgeben")];
+  await db.prepare(book,words,[],tenses);assert.equal(disk.getItem(),null);
+  failed=false;
+  await db.prepare(book,words,[],tenses);assert.equal(calls,2);assert.ok(disk.getItem());
+  await db.prepare(book,words,[],tenses);assert.equal(calls,2);
+  const legacy=JSON.parse(disk.getItem()),key=Object.keys(legacy)[0];
+  legacy[key].verb.referenceError="Alter Ladefehler";legacy[key].ready=false;
+  const imported=VOCVerbDatabase.create(storage(JSON.stringify(legacy)),(w,l)=>engine.conjugate(w,l),null,
+    async verb=>{calls++;return verb;});
+  await imported.prepare(book,words,[],tenses);assert.equal(calls,3);
+});

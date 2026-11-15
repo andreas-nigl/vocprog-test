@@ -108,7 +108,7 @@
       try { incoming = JSON.parse(storage.getItem(KEY) || "{}"); } catch { return; }
       if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) return;
       for (const [key, value] of Object.entries(incoming)) {
-        if (value?.version !== VERSION || typeof value.lemma !== "string" ||
+        if (value?.version !== VERSION || typeof value.lemma !== "string" || value.verb?.referenceError ||
             !value.verb || typeof value.verb.cards !== "object" ||
             key !== normalKey(value.language, value.lemma, value.german)) continue;
         if (!records[key] || (!records[key].ready && value.ready)) records[key] = value;
@@ -137,7 +137,9 @@
                 card.germanVerification?.status !== "reference-matched")));
             record = {version: VERSION, key, bookId: book.id, language: book.lang, lemma, german,
               verb, ready: verb.missing.length === 0, checkedAt: new Date().toISOString()};
-            next[key] = record; changed = true;
+            // A failed fetch is not a completed check. Reopening can retry it;
+            // completed records and genuine reference gaps stay cached.
+            if (!verb.referenceError) { next[key] = record; changed = true; }
           }
           verbs[lemma] = record.verb;
         }

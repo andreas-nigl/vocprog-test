@@ -930,17 +930,31 @@
     const start=Number(get("startVocab").value),end=Number(get("endVocab").value);
     return filteredVocabList.slice(Math.max(0,start),end+1);
   }
+  function vocabularyBookSummary(entries,caches){
+    const normalized=value=>String(value||"").normalize("NFC").replace(/\s+/g," ").trim();
+    const pair=(first,second)=>JSON.stringify([normalized(first),normalized(second)].sort());
+    const sentences=new Set(entries.filter(entry=>normalized(entry.sentence_foreign)&&normalized(entry.sentence_german))
+      .map(entry=>pair(entry.sentence_foreign,entry.sentence_german)));
+    const generated=new Set(caches.flatMap(cache=>Array.isArray(cache.items)?cache.items:[])
+      .filter(item=>normalized(item.prompt)&&normalized(item.target)).map(item=>pair(item.prompt,item.target)));
+    return entries.length+(entries.length===1?" Vokabel":" Vokabeln")+" · "+sentences.size+
+      (sentences.size===1?" Buchsatz":" Buchsätze")+" · "+generated.size+
+      (generated.size===1?" gespeicherter KI-Satz.":" gespeicherte KI-Sätze.");
+  }
   function updateVerbReadiness(){
     const button=get("startTrainingBtn"),status=get("verbPreparationStatus");
     if(!button||!status)return;
-    const retry=get("retryVerbPreparationBtn");
-    if(!isVerbBook()){button.disabled=false;status.hidden=true;if(retry)retry.hidden=true;return;}
+    if(!isVerbBook()){
+      const book=activeBook();button.disabled=false;status.hidden=!book;
+      status.textContent=book?vocabularyBookSummary(allVocab().filter(entry=>entry.bookId===book.id),
+        specials.filter(entry=>entry.bookId===book.id)):"";
+      return;
+    }
     status.hidden=false;
     const snapshot=verbDatabase.get(chosenBook),tense=normalizeTense(get("tenseSelect")?.value);
     const selected=selectedVerbRange();
     const missing=selected.filter(entry=>snapshot?.verbs[entry.verbId]?.cards[tense]?.length!==6||
       snapshot.verbs[entry.verbId]?.missing?.includes(tense));
-    if(retry){retry.hidden=!missing.length&&!preparationError;retry.disabled=preparingVerbData;}
     button.disabled=preparingVerbData||analyzingVerbInput||!!preparationError||!selected.length||missing.length>0;
     status.textContent=preparingVerbData?"Konjugationen werden vorbereitet …":
       preparationError?"Vorbereitung fehlgeschlagen: "+preparationError:
@@ -972,9 +986,6 @@
     return ready;
   }
   window.updateVerbReadiness=updateVerbReadiness;
-  window.retryPreparedVerbs=function(){
-    verbDatabase.retryPending(chosenBook);return scheduleVerbPreparation();
-  };
   const oldStartTraining=startTraining;
   startTraining=async function(event){
     if(!isVerbBook())return oldStartTraining(event);

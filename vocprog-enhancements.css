@@ -127,3 +127,7 @@ body.voc-training-active .voc-footer,body.voc-training-active .analysis-float-zo
 
 /* Sync must never reveal setup controls during an active exercise. */
 body:has(#trainerCard:not(.hidden)) #rangeCard{display:none!important}
+
+/* Compact inventory directly below the learning start button, for every book. */
+#startTrainingBtn{margin-bottom:0}
+#verbPreparationStatus{margin:4px 0 0;font-size:.85rem;line-height:1.35;color:var(--text-muted)}
