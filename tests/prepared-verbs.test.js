@@ -102,6 +102,6 @@ test("Infinitive selection is separate from six-card expansion and blocks incomp
   assert.equal(elements.startTrainingBtn.disabled, false);
   state.error = "quota"; run(state, elements); assert.equal(elements.startTrainingBtn.disabled, true);
   const start = source.slice(source.indexOf("  const oldStartTraining="), source.indexOf("  const oldFilterVocab="));
-  assert.match(start, /snapshot\.verbs\[base.verbId\]\.cards\[tense\]\.map/);
+  assert.match(start, /snapshot\.verbs\[base.verbId\]\.cards\[tense\]/);
   assert.doesNotMatch(start, /\.conjugate\(/);
 });

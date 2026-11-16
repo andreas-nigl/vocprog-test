@@ -648,6 +648,7 @@
   window.cleanSpokenText=function(text){
     return String(text||"").replace(/<[^>]*>/g,"")
       .replace(/\[[^\]]*\]/g,"")
+      .replace(/\((?:tu|nous|vous|du|wir|ihr|Sie)\)\s*/g,"")
       .replace(/\((?:AE|BE|AmE|BrE|UK|US|American English|British English|ugs\.?|fig\.?|pl\.?|sing\.?)\)/gi,"")
       .replace(/\b(?:AE|BE|AmE|BrE)\s*:/g,"")
       .replace(/\s+/g," ").trim();
@@ -695,7 +696,7 @@
       get("answerInput").value=e.results[0][0].transcript;
       get("answerInput").focus();
     };
-    recognition.onerror=e=>get("answerFeedback").textContent="Spracherkennung: "+e.error;
+    recognition.onerror=e=>get("answerFeedback").textContent=e.error==="not-allowed"?"Mikrofon oder Spracherkennung blockiert. Bitte Mikrofonzugriff in den Website-Einstellungen und im Betriebssystem erlauben und die Seite neu laden.":"Spracherkennung: "+e.error;
     recognition.start();
   };
   function logEvent(action,item,other={}){
@@ -919,7 +920,7 @@
 
   // Only printed / individually validated forms are trainable. Do not invent inflections.
   const TENSES={
-    "fr-FR":[["présent","Présent (Gegenwart)"],["imparfait","Imparfait (unvollendete Vergangenheit)"],["passé composé","Passé composé (zusammengesetzte Vergangenheit)"],["plus-que-parfait","Plus-que-parfait (Vorvergangenheit)"],["futur simple","Futur simple (Zukunft)"],["conditionnel présent","Conditionnel présent (würde-Form)"],["subjonctif présent","Subjonctif présent (Subjonctif Gegenwart)"]],
+    "fr-FR":[["présent","Présent (Gegenwart)"],["imparfait","Imparfait (unvollendete Vergangenheit)"],["passé composé","Passé composé (zusammengesetzte Vergangenheit)"],["plus-que-parfait","Plus-que-parfait (Vorvergangenheit)"],["futur simple","Futur simple (Zukunft)"],["conditionnel présent","Conditionnel présent (würde-Form)"],["subjonctif présent","Subjonctif présent (Subjonctif Gegenwart)"],["impératif","Impératif (Befehlsform)"]],
     "en-US":[["simple present","Simple Present (Gegenwart)"],["present progressive","Present Progressive (Verlaufsform Gegenwart)"],["simple past","Simple Past (Vergangenheit)"],["past progressive","Past Progressive (Verlaufsform Vergangenheit)"],["present perfect","Present Perfect (vollendete Gegenwart)"],["past perfect","Past Perfect (Vorvergangenheit)"],["will future","Will-Future (Zukunft)"],["going to future","Going-to-Future (geplante Zukunft)"],["conditional","Conditional (würde-Form)"]],
     "es-ES":[["presente","Presente (Gegenwart)"],["pretérito perfecto compuesto","Pretérito perfecto compuesto (zusammengesetzte Vergangenheit)"],["pretérito indefinido","Pretérito indefinido (abgeschlossene Vergangenheit)"],["pretérito imperfecto","Pretérito imperfecto (unvollendete Vergangenheit)"],["pluscuamperfecto","Pluscuamperfecto (Vorvergangenheit)"],["futuro simple","Futuro simple (Zukunft)"],["condicional simple","Condicional simple (würde-Form)"],["presente de subjuntivo","Presente de subjuntivo (Subjunktiv Gegenwart)"]],
     "pt-PT":[["presente","Presente (Gegenwart)"],["pretérito perfeito","Pretérito perfeito (abgeschlossene Vergangenheit)"],["pretérito imperfeito","Pretérito imperfeito (unvollendete Vergangenheit)"],["mais-que-perfeito composto","Mais-que-perfeito composto (Vorvergangenheit)"],["futuro do presente","Futuro do presente (Zukunft)"],["condicional","Condicional (würde-Form)"],["presente do conjuntivo","Presente do conjuntivo (Konjunktiv Gegenwart)"]],
@@ -992,7 +993,11 @@
         infinitive:lemma,verbId:lemma});
     }
     const indexByPage=new Map(),seen=new Set();
-    return [...base,...fallback].flatMap(v=>{
+    return [...base,...fallback].sort((a,b)=>{
+      const page=String(a.page||"?"),other=String(b.page||"?");
+      const pageOrder=page==="?"?(other==="?"?0:1):other==="?"?-1:page.localeCompare(other,"de",{numeric:true});
+      return pageOrder||Number(String(a.refVocab||"").match(/\bV\s*(\d+)/i)?.[1]||Infinity)-Number(String(b.refVocab||"").match(/\bV\s*(\d+)/i)?.[1]||Infinity)||0;
+    }).flatMap(v=>{
       const page=String(v.page||"?"),lemma=window.VOCVerbDatabase.lemmaOf(v);
       const key=page+"|"+lemma;
       if(!lemma||seen.has(key))return [];
@@ -1033,13 +1038,15 @@
     status.hidden=false;
     const snapshot=verbDatabase.get(chosenBook),tense=normalizeTense(get("tenseSelect")?.value);
     const selected=selectedVerbRange();
-    const missing=selected.filter(entry=>snapshot?.verbs[entry.verbId]?.cards[tense]?.length!==6||
-      snapshot.verbs[entry.verbId]?.missing?.includes(tense));
+    const slots=tense==="impératif"?3:6;
+    const missing=selected.filter(entry=>tense==="impératif"?
+      window.VOCVerbPresentation.imperativeCards(snapshot?.verbs[entry.verbId]).length!==3:
+      snapshot?.verbs[entry.verbId]?.cards[tense]?.length!==6||snapshot.verbs[entry.verbId]?.missing?.includes(tense));
     button.disabled=preparingVerbData||analyzingVerbInput||!!preparationError||!selected.length||missing.length>0;
     status.textContent=preparingVerbData?"Konjugationen werden vorbereitet …":
       preparationError?"Vorbereitung fehlgeschlagen: "+preparationError:
       missing.length?"Formen/Übersetzungen noch nicht vollständig abgeglichen: "+missing.map(v=>v.foreign).join(", "):
-      selected.length+" Verben · "+(selected.length*6)+" Formen mit deutschen Lernentsprechungen abgeglichen.";
+      selected.length+" Verben · "+(selected.length*slots)+" Formen mit deutschen Lernentsprechungen abgeglichen.";
     get("rangeCard").classList.toggle("hidden",preparingVerbData||analyzingVerbInput||!filteredVocabList.length||
       !get("trainerCard").classList.contains("hidden"));
   }
@@ -1055,7 +1062,7 @@
       for(const book of books.filter(b=>bookKind(b)==="verbs")){
         await verbDatabase.prepare(book,entries.filter(v=>v.bookId===book.id),
           specials.filter(v=>v.bookId===book.id&&v.kind==="verb-paradigm"),
-          (TENSES[book.lang]||[]).map(([tense])=>tense));
+          (TENSES[book.lang]||[]).map(([tense])=>tense).filter(tense=>tense!=="impératif"));
       }
     }).catch(error=>{
       if(revision===preparationRevision)preparationError=String(error.message||error);
@@ -1074,7 +1081,7 @@
     const selected=selectedVerbRange(),snapshot=verbDatabase.get(chosenBook);
     const tense=normalizeTense(get("tenseSelect").value);
     const reverse=get("direction").value==="foreign_to_de";
-    trainingItems=selected.flatMap(base=>snapshot.verbs[base.verbId].cards[tense].map(card=>{
+    trainingItems=selected.flatMap(base=>(tense==="impératif"?window.VOCVerbPresentation.imperativeCards(snapshot.verbs[base.verbId]):snapshot.verbs[base.verbId].cards[tense]).map(card=>{
       const german=card.german;
       return {prompt:reverse?card.foreign:german,
         target:reverse?card.german:card.foreign,
@@ -1165,7 +1172,9 @@
       const imp=typeof prepared.imperative==="string"?prepared.imperative:(Array.isArray(paradigm?.imperative)?
         paradigm.imperative.map((v,i)=>"("+persons[i]+") "+v).join(" / "):
         Array.isArray(reference?.imperative)?reference.imperative.map((v,i)=>"("+persons[i]+") "+v).join(" / "):"");
-      row("Impératif : "+(imp||missing),prepared.imperativeGerman||imperative?.german||missing);
+      const imperativeCards=window.VOCVerbPresentation?.imperativeCards(prepared)||[];
+      row("Impératif : "+(imperativeCards.length===3?imperativeCards.map(card=>card.foreign).join(" / "):imp||missing),
+        window.VOCVerbPresentation?.germanImperative(prepared.imperativeGerman||imperative?.german||missing)||prepared.imperativeGerman||imperative?.german||missing);
     }else{
       row("Infinitiv : "+(base?.foreign||item.verbLemma),base?.german||missing);
       for(const [kind,label] of [
@@ -1190,7 +1199,7 @@
     const title=catalog.find(([name])=>name===tense)?.[1]||tense;
     const match=title.match(/^(.+?)\s*\(([^)]+)\)$/);
     row(match?.[1]||title,match?.[2]||"Zeitform",true);
-    const cards=prepared.cards[tense]||[];
+    const cards=tense==="impératif"?(window.VOCVerbPresentation?.imperativeCards(prepared)||[]):prepared.cards[tense]||[];
     for(const card of cards)row(card.foreign,card.german||
       "Konjugationsaufgabe: "+card.grammaticalPrompt);
     if(!cards.length)row("Keine vorbereiteten Formen",missing);
