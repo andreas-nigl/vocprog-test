@@ -147,3 +147,8 @@ body:has(#trainerCard:not(.hidden)) #rangeCard{display:none!important}
 .practice-result-track{height:150px;display:flex;align-items:flex-end;margin-bottom:8px}
 .practice-result-track .voc-analysis-bar{flex:1;min-height:0}
 .practice-result-track .voc-analysis-bar span{font-size:.9rem}
+
+.data-section-label{font-size:.8rem;font-weight:600;margin:0 0 6px;color:var(--text-muted)}
+#pageRangeInput{margin-bottom:4px}#pageRangeInput[aria-invalid="true"]{border-color:#b91c1c}
+.page-range-help,.page-range-error{font-size:.78rem;line-height:1.35;margin:0 0 12px;color:var(--text-muted)}
+.page-range-error{color:#b91c1c}.page-range-error[hidden]{display:none}

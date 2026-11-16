@@ -540,6 +540,22 @@
   };
   window.pickLearningBook=function(){chooseBook(get("bookSelect").value)};
 
+  const learningPageSelections=new Map();
+  parsePageRanges=value=>window.VOCPageSelection.parse(value).pages;
+  window.applyLearningPages=function(normalize=false,initial=false){
+    if(!initial)cancelSentenceGeneration();
+    const input=get("pageRangeInput"),error=get("pageRangeError");
+    const parsed=window.VOCPageSelection.parse(input.value);
+    input.setCustomValidity(parsed.error);input.setAttribute("aria-invalid",String(!parsed.valid));
+    error.textContent=parsed.error;error.hidden=parsed.valid;
+    if(parsed.valid){
+      if(normalize)input.value=formatPageRanges(parsed.pages);
+      if(!initial)learningPageSelections.set(chosenBook,input.value);
+      filterVocabByPages();
+      if(!filteredVocabList.length){error.textContent="Für diese Seiten sind in diesem Buch keine Vokabeln vorhanden.";error.hidden=false;}
+    }
+    updateVerbReadiness();
+  };
   const oldLoad=loadFromLocalStorage;
   loadFromLocalStorage=function(){
     oldLoad();
@@ -551,8 +567,12 @@
     const book=books.find(b=>b.id===chosenBook);
     if(!book)return;
     const target=vocabList.filter(v=>v.bookId===book.id);
-    get("pageRangeInput").value=formatPageRanges([...new Set(target.map(x=>Number(x.page)).filter(Number.isFinite))].sort((a,b)=>a-b));
-    filterVocabByPages();
+    const input=get("pageRangeInput"),sameBook=input.dataset.bookId===book.id;
+    if(!sameBook||(!learningPageSelections.has(book.id)&&document.activeElement!==input)){
+      input.value=learningPageSelections.get(book.id)||formatPageRanges([...new Set(target.map(x=>Number(x.page)).filter(Number.isFinite))].sort((a,b)=>a-b));
+    }
+    input.dataset.bookId=book.id;
+    window.applyLearningPages(false,true);
     scheduleVerbPreparation();
     get("rangeCard").classList.toggle("hidden",target.length===0||!get("trainerCard").classList.contains("hidden")||isVerbBook());
   };
@@ -1070,7 +1090,7 @@
     const button=get("startTrainingBtn"),status=get("verbPreparationStatus");
     if(!button||!status)return;
     if(!isVerbBook()){
-      const book=activeBook();button.disabled=false;status.hidden=!book;
+      const book=activeBook();button.disabled=!filteredVocabList.length||get("pageRangeInput")?.getAttribute?.("aria-invalid")==="true";status.hidden=!book;
       button.textContent=sentenceJob?"Generierung abbrechen":"▶ Abfrage starten";
       status.textContent=book?vocabularyBookSummary(allVocab().filter(entry=>entry.bookId===book.id),
         specials.filter(entry=>entry.bookId===book.id)):"";
@@ -1085,7 +1105,7 @@
     const missing=selected.filter(entry=>tense==="impératif"?
       window.VOCVerbPresentation.imperativeCards(snapshot?.verbs[entry.verbId]).length!==3:
       snapshot?.verbs[entry.verbId]?.cards[tense]?.length!==6||snapshot.verbs[entry.verbId]?.missing?.includes(tense));
-    button.disabled=preparingVerbData||analyzingVerbInput||!!preparationError||!selected.length||missing.length>0;
+    button.disabled=preparingVerbData||analyzingVerbInput||!!preparationError||!selected.length||missing.length>0||get("pageRangeInput")?.getAttribute?.("aria-invalid")==="true";
     status.textContent=preparingVerbData?"Konjugationen werden vorbereitet …":
       preparationError?"Vorbereitung fehlgeschlagen: "+preparationError:
       missing.length?"Formen/Übersetzungen noch nicht vollständig abgeglichen: "+missing.map(v=>v.foreign).join(", "):
@@ -1140,6 +1160,7 @@
   };
   const oldFilterVocab=filterVocabByPages;
   filterVocabByPages=function(){
+    if(get("pageRangeInput")?.getAttribute?.("aria-invalid")==="true"){updateVerbReadiness();return;}
     if(!isVerbBook()){oldFilterVocab();updateVerbReadiness();return;}
     const allowed=parsePageRanges(get("pageRangeInput").value);
     const all=selectedVerbEntries();

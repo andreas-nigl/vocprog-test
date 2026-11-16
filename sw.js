@@ -1,5 +1,5 @@
-const CACHE="vocprog-staging-20261116-v27";
-const ASSETS=["./vocprog-practice.js?v=0.5.11-1","./vocprog-verb-presentation.js?v=0.5.11-1","./vocprog-sentences.js?v=0.5.11-1","./","./index.html","./manifest.json","./vocprog-enhancements.js?v=0.5.11-1","./vocprog-fr-reference.js?v=0.5.11-1","./vocprog-enhancements.css?v=0.5.11-1","./favicon.svg","./vocprog-wasm-adapter.js?v=0.5.11-1","./vocprog-morphology.js?v=0.5.11-1","./vocprog-independent-reference.js?v=0.5.11-1","./vocprog-german-forms.js?v=0.5.11-1","./reference/manifest.json?v=reference-20261114-1","./vocprog-verb-database.js?v=0.5.11-1","./vendor/ablaut/ablaut.js","./vendor/ablaut/ablaut_bg.wasm"];
+const CACHE="vocprog-staging-20261116-v28";
+const ASSETS=["./vocprog-page-selection.js?v=0.5.12-1","./vocprog-practice.js?v=0.5.12-1","./vocprog-verb-presentation.js?v=0.5.12-1","./vocprog-sentences.js?v=0.5.12-1","./","./index.html","./manifest.json","./vocprog-enhancements.js?v=0.5.12-1","./vocprog-fr-reference.js?v=0.5.12-1","./vocprog-enhancements.css?v=0.5.12-1","./favicon.svg","./vocprog-wasm-adapter.js?v=0.5.12-1","./vocprog-morphology.js?v=0.5.12-1","./vocprog-independent-reference.js?v=0.5.12-1","./vocprog-german-forms.js?v=0.5.12-1","./reference/manifest.json?v=reference-20261114-1","./vocprog-verb-database.js?v=0.5.12-1","./vendor/ablaut/ablaut.js","./vendor/ablaut/ablaut_bg.wasm"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
