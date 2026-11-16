@@ -91,7 +91,7 @@ function syncClient(remote,initial=[]){
  if(state.duringPost){const action=state.duringPost;state.duringPost=null;action();}
  return {ok:true};
  }
- const url=new URL(_url),offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||1000);
+ const url=new URL(_url),offset=Number(url.searchParams.get('offset')||0),limit=Math.min(1000,Number(url.searchParams.get('limit')||1000));
  if(state.failOffset!==undefined&&offset>=state.failOffset)return {ok:false,status:503};
  return {ok:true,json:async()=>state.dropConfirmation&&_url.includes('record_id=in.')?[]:JSON.parse(JSON.stringify([...remote.values()].sort((a,b)=>a.record_id.localeCompare(b.record_id)).slice(offset,offset+limit)))};
  };
