@@ -30,6 +30,8 @@ function harness({cached=[],online=true,fetcher}={}){
  const buttons=new Map();
  const get=key=>{if(!buttons.has(key))buttons.set(key,{id:key,value:key==='apiKey'?'test-key':key==='direction'?'de_to_foreign':'',checked:false,textContent:'',classList:{add(){},remove(){}},setAttribute(){},removeAttribute(){}});return buttons.get(key);};
  const setup=new Function('state','get','api','fetcher',`
+ let syncing=false;
+ const syncNow=async()=>state.syncFailure?false:true;
  let specials=state.specials,chosenBook='book',trainingItems=[];
  const window={VOCSentences:api},navigator={get onLine(){return state.online;}},initialSyncReady=Promise.resolve();
  const activeBook=()=>({lang:'fr-FR'}),filteredVocabList=[];
@@ -89,7 +91,9 @@ function syncClient(remote,initial=[]){
  if(state.duringPost){const action=state.duringPost;state.duringPost=null;action();}
  return {ok:true};
  }
- return {ok:true,json:async()=>state.dropConfirmation&&_url.includes('record_id=in.')?[]:JSON.parse(JSON.stringify([...remote.values()]))};
+ const url=new URL(_url),offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||1000);
+ if(state.failOffset!==undefined&&offset>=state.failOffset)return {ok:false,status:503};
+ return {ok:true,json:async()=>state.dropConfirmation&&_url.includes('record_id=in.')?[]:JSON.parse(JSON.stringify([...remote.values()].sort((a,b)=>a.record_id.localeCompare(b.record_id)).slice(offset,offset+limit)))};
  };
  ${fragment}
  return {sync:syncNow,queue:scheduleSync,entries:()=>specials,add:item=>specials.push(item),error:()=>lastError};`);
@@ -133,4 +137,23 @@ test('Server confirmation failure remains visible instead of declaring synchroni
  const remote=new Map(),client=syncClient(remote,[{...sentence,updatedAt:'2026-11-15T10:00:00Z'}]);
  client.state.dropConfirmation=true;await client.sync();
  assert.match(client.error(),/Nicht alle neuen KI-Sätze/);
+});
+
+test('Fresh client loads a sentence beyond the first 1000 server records without generation',async()=>{
+ const remote=new Map();
+ for(let i=0;i<1200;i++)remote.set('special:'+String(i).padStart(5,'0'),{record_id:'special:'+String(i).padStart(5,'0'),record_type:'special',payload:{id:String(i),kind:'fixture',bookId:'book'},updated_at:'2026-01-01T00:00:00Z'});
+ remote.set('special:zz-sentence',{record_id:'special:zz-sentence',record_type:'special',payload:{...sentence,id:'zz-sentence',updatedAt:'2026-11-16T00:00:00Z'},updated_at:'2026-11-16T00:00:00Z'});
+ const fresh=syncClient(remote);assert.equal(await fresh.sync(),true);
+ assert.equal(fresh.entries().length,1201);
+ assert.equal(api.eligible(fresh.entries(),'book',words).length,1);
+});
+test('A failed later page neither merges a partial server snapshot nor writes local data',async()=>{
+ const remote=new Map();for(let i=0;i<700;i++)remote.set(String(i),{record_id:String(i),record_type:'special',payload:{id:String(i)},updated_at:'2026-01-01T00:00:00Z'});
+ const fresh=syncClient(remote);fresh.state.failOffset=500;
+ assert.equal(await fresh.sync(),false);assert.equal(fresh.entries().length,0);assert.equal(fresh.state.posts,0);
+});
+test('Failed server inventory never starts a paid AI generation',async()=>{
+ const h=harness();h.state.syncFailure=true;
+ await h.run(words,h.get('startTrainingBtn'),false);
+ assert.equal(h.state.requests,undefined);assert.match(h.state.alerts[0],/Keine neue Generierung gestartet/);
 });

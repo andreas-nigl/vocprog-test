@@ -804,7 +804,14 @@
     button.textContent="Generierung abbrechen";
     const timeout=setTimeout(()=>controller.abort(),90000);
     try{
-      if(navigator.onLine)await initialSyncReady;
+      if(navigator.onLine){
+        await initialSyncReady;
+        if(typeof syncNow==="function"){
+          if(syncing)throw Error("Serverabgleich läuft noch. Bitte kurz warten und erneut starten.");
+          const ready=await syncNow();
+          if(ready!==true)throw Error("Satzbestand konnte nicht vollständig vom Server geladen werden. Keine neue Generierung gestartet.");
+        }
+      }
       if(controller.signal.aborted)return;
       const cached=window.VOCSentences.eligible(specials,job.bookId,slice);
       if(cached.length&&!force){sentenceCards(cached,random);return;}
@@ -1499,15 +1506,24 @@
   window.syncVocprog=syncNow;
   let lastError="",syncAgain=false;
   async function syncNow(){
-    if(syncing||!navigator.onLine)return;
+    if(syncing||!navigator.onLine)return false;
     syncing=true;renderStatus();
     try{
       const table="/rest/v1/vocprog_public_records";
-      let res=await publicFetch(table+"?select=record_id,record_type,payload,updated_at&limit=10000");
-      if(!res.ok)throw Error("Öffentliche Tabelle noch nicht eingerichtet (HTTP "+res.status+").");
-      const remote=await res.json();
-      if(!Array.isArray(remote))throw Error("Ungültige Datenbankantwort.");
-      if(remote.length>=10000)throw Error("Datensatzgrenze erreicht – Paging erforderlich.");
+      const remote=[],seen=new Set(),pageSize=500;
+      let res;
+      for(let offset=0;;){
+        res=await publicFetch(table+"?select=record_id,record_type,payload,updated_at&order=record_id.asc&limit="+pageSize+"&offset="+offset,{cache:"no-store"});
+        if(!res.ok)throw Error("Serverbestand nicht vollständig lesbar (HTTP "+res.status+").");
+        const page=await res.json();
+        if(!Array.isArray(page))throw Error("Ungültige Datenbankantwort.");
+        if(!page.length)break;
+        for(const row of page){
+          if(!row.record_id||seen.has(row.record_id))throw Error("Serverbestand hat sich beim Laden verändert. Bitte Synchronisierung erneut starten.");
+          seen.add(row.record_id);
+        }
+        remote.push(...page);offset+=page.length;
+      }
       mergeRemote(remote);
       consolidateVerbBooks();
       const server=new Map(remote.map(x=>[x.record_id,x]));
@@ -1529,7 +1545,8 @@
         }
       }
       lastSync=new Date().toISOString();localStorage.setItem(STORE+"_synced",lastSync);lastError="";
-    }catch(e){lastError=e.message;console.warn("VOC Sync:",e);}
+      return true;
+    }catch(e){lastError=e.message;console.warn("VOC Sync:",e);return false;}
     finally{syncing=false;renderStatus();if(syncAgain){syncAgain=false;scheduleSync();}}
   }
   function scheduleSync(){
