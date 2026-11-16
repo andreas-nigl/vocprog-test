@@ -705,16 +705,46 @@
       sourceId:item.sourceId||item.ref||"",at:new Date().toISOString(),
       action,...other};
     history.push(entry);save(STORE+"_events",history);scheduleSync();
+    if(practiceSession&&action==="spoken")practiceSession.speak();
+    if(practiceSession&&action==="graded"){
+      practiceSession.grade(currentIndex,other.correct===true,other.answer||"");
+      get("counter").textContent=(currentIndex+1)+" / "+trainingItems.length;
+      if(practiceSession.complete())finishPractice();
+    }
     return entry;
+  }
+  let practiceSession=null;
+  function finishPractice(){
+    if(!practiceSession?.complete())return;
+    const result=practiceSession.statistics(),kind=trainingItems[0]?.kind;
+    const label={words:"Vokabeln",verbs:"Verben",sentences:"Einfache Sätze",special:"KI-Spezialsätze"}[kind]||"Vokabeln";
+    exitTrainer();
+    get("practiceResultTitle").textContent=label;
+    const percent=new Intl.NumberFormat("de-DE",{maximumFractionDigits:1}).format(result.percent)+" %";
+    get("practiceResultPercent").textContent=percent;
+    get("practiceResultDetail").textContent=result.correct+" von "+result.asked+" Antworten richtig. Alle "+result.initialCount+" Lernkarten erfolgreich abgeschlossen.";
+    const maximum=Math.max(1,result.asked,result.spoken);
+    const values=[["Asked",result.asked,result.asked/maximum*100],["Correct",percent,result.percent],["Spoken",result.spoken,result.spoken/maximum*100]];
+    for(const [name,value,height] of values){
+      get("practiceResult"+name+"Value").textContent=String(value);
+      get("practiceResult"+name+"Bar").style.height=Math.max(0,height)+"%";
+    }
+    get("practiceResultDialog").showModal();
   }
   const oldShow=showCard;
   showCard=function(){
     oldShow();
-    analyzedThisCard=false;
+    if(!practiceSession||practiceSession.items!==trainingItems)practiceSession=window.VOCPractice.create(trainingItems);
+    const previous=practiceSession.answers.get(currentIndex);
+    analyzedThisCard=!!previous;
     const input=get("answerInput"),feedback=get("answerFeedback");
-    input.value="";input.className="";feedback.textContent="";
+    input.value=previous?.answer||"";input.className=previous?(previous.correct?"answer-correct":"answer-wrong"):"";
+    feedback.textContent=previous?(previous.correct?"Richtig":"Nicht richtig – zur Wiederholung angehängt"):"";
+    if(previous)get("targetText").classList.remove("masked");
     const item=trainingItems[currentIndex];
-    lastShownEvent=logEvent("shown",item);
+    if(!practiceSession.shown.has(currentIndex)){
+      practiceSession.shown.add(currentIndex);lastShownEvent=logEvent("shown",item);
+    }
     document.body.classList.add("voc-training-active");
     if(window.matchMedia("(min-width: 641px) and (pointer: fine)").matches)setTimeout(()=>input.focus(),0);
   };
@@ -748,6 +778,9 @@
   };
   const originalNextCard=nextCard;
   nextCard=function(){
+    if(practiceSession&&!analyzedThisCard&&!get("answerInput").value.trim()){
+      get("answerFeedback").textContent="Bitte zuerst eine Antwort eingeben und prüfen lassen.";return;
+    }
     if(!analyzedThisCard&&get("answerInput").value.trim()){
       window.gradeCurrentAnswer();
       return;
@@ -756,6 +789,7 @@
   };
   const originalExitTrainer=exitTrainer;
   exitTrainer=function(){
+    practiceSession=null;
     cancelSentenceGeneration();
     originalExitTrainer();
     const table=get("verbTablePanel");if(table)table.hidden=true;
@@ -865,6 +899,7 @@
     return runSentenceTraining(sentenceSlice(),get("newSentencesBtn"),get("randomize").checked,true);
   };
   function enterTraining(){
+    practiceSession=window.VOCPractice.create(trainingItems);
     currentIndex=0;
     for(const n of ["configCard","scanCard","rangeCard"])get(n).classList.add("hidden");
     get("trainerCard").classList.remove("hidden");showCard();
