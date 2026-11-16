@@ -5,7 +5,7 @@ test('Disabled conjugation mode asks one infinitive per selected verb in either 
  const fragment=source.slice(source.indexOf('  const oldStartTraining='),source.indexOf('  const oldFilterVocab='));
  for(const reverse of [false,true]){
  const state={cards:null};
- const elements={startTrainingBtn:{disabled:false},practiceConjugations:{checked:false},tenseSelect:{value:'présent'},direction:{value:reverse?'foreign_to_de':'de_to_foreign'},randomize:{checked:false}};
+ const elements={startTrainingBtn:{disabled:false},tenseSelect:{value:'infinitiv'},direction:{value:reverse?'foreign_to_de':'de_to_foreign'},randomize:{checked:false}};
  const start=new Function('state','elements',`
  let trainingItems=[],startTraining=()=>{};
  const get=id=>elements[id],isVerbBook=()=>true,updateVerbReadiness=()=>{},normalizeTense=x=>x,activeBook=()=>({lang:'fr-FR'});
@@ -19,8 +19,9 @@ test('Disabled conjugation mode asks one infinitive per selected verb in either 
  assert.equal(state.cards[0].kind,'verbs');
  }
 });
-test('Conjugations checkbox defaults to enabled and is shown only for verb books',()=>{
+test('Infinitives are the first catalog option and the redundant checkbox is removed',()=>{
  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
- assert.match(html,/id="practiceConjugations"[^>]*checked/);
- assert.match(source,/get\("conjugationsOption"\)\.hidden=!verb/);
+ assert.doesNotMatch(html,/id="practiceConjugations"/);
+ assert.match(source,/catalog.unshift\(\["infinitiv","Infinitive \(Grundformen\)"\]\)/);
+ assert.match(source,/tense!=="impératif"&&tense!=="infinitiv"/);
 });

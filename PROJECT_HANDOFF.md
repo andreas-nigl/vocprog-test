@@ -1,3 +1,13 @@
+## 2026-11-16 – VOC 0.5.14: Grundformen im Zeitformmenü und freigegebene Produktivübernahme
+
+- Nutzer gibt alle offenen Implementierungen und Übernahme nach vocprog ausdrücklich frei; vocprog-test bleibt als Entwicklungsfassung erhalten. Kein Repository löschen/umbenennen, keine Datensätze löschen.
+- Infinitive (Grundformen) steht als erster Eintrag in allen Verb-Zeitformkatalogen. Zusätzlicher Konjugationen-Schalter entfernt, Einstellungen bleibt über Zufällige Reihenfolge. Grundformen starten mit einer Karte je Verb ohne Konjugationsabhängigkeit; Pseudozeitform wird nicht an Vorbereitungsengine geschickt. Vorhandene gespeicherte Zeitformauswahl bleibt erhalten.
+- Service Worker trennt Cachepräfix nach Registrierungspfad; Aktivierung löscht nur eigene Versionen, Offline-Fallback liest ausschließlich eigenen Cache, Fremdpfade werden nicht abgefangen. Legacycaches werden nicht pauschal gelöscht. Gemeinsame localStorage-Schlüssel, Supabase-Tabellen und Datensatz-IDs bleiben unverändert; API-Key weiterhin ausschließlich lokal.
+- 102/102 Node-Tests bestanden einschließlich echter WASM, Grundformen in beiden Richtungen und neuer Offline-/Scope-Isolationstests; JS-/SW-Syntax und Diffprüfung bestanden. Browser- und Veröffentlichungsprüfung folgen. Kein Nachweis eines physischen Offline-Neustarts oder eines neuen echten KI-Server-Readbacks aus diesen automatisierten Tests.
+- Produktiv-Ausgangscommit gesichert in bestehender Git-Historie: 3aba2daeaa5e6f1cb4acd5517e3e6a8b20dacebb. Produktivicons/Manifest vom 13.11. erhalten; WASM wird direkt vom gepinnten Testrepository kopiert und per SHA256 geprüft, keine Base64-/Binärübertragung durch Chat. Produktivübernahme/Pages-Erfolg erst nach tatsächlicher Ausführung dokumentieren.
+
+---
+
 ## 2026-11-16 – VOC 0.5.12/0.5.13: sichtbare Seitenauswahl, Datenerfassung und Grundformen-Schalter
 
 - Nutzer konkretisiert vorher nur vorgeschlagenes Seitenfeld: fest sichtbar direkt unter 3. Lernbereich, vorhandene Seiten vorbefüllt; Einzelzahlen/aufsteigende Bereiche mit Komma editieren. Über Kamera/Galerie Überschrift Datenerfassung. Anschließende Erweiterung desselben Arbeitsblocks: Einstellungen über Zufällige Reihenfolge; nur für Verbücher davor standardmäßig aktivierter, abwählbarer Schalter Konjugationen. Aus fragt ausschließlich Infinitiv/Grundbedeutung, keine weiteren neuen Modi.

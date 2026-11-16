@@ -981,6 +981,7 @@
     "pt-PT":[["presente","Presente (Gegenwart)"],["pretérito perfeito","Pretérito perfeito (abgeschlossene Vergangenheit)"],["pretérito imperfeito","Pretérito imperfeito (unvollendete Vergangenheit)"],["mais-que-perfeito composto","Mais-que-perfeito composto (Vorvergangenheit)"],["futuro do presente","Futuro do presente (Zukunft)"],["condicional","Condicional (würde-Form)"],["presente do conjuntivo","Presente do conjuntivo (Konjunktiv Gegenwart)"]],
     "nl-NL":[["onvoltooid tegenwoordige tijd","Onvoltooid tegenwoordige tijd (Gegenwart)"],["onvoltooid verleden tijd","Onvoltooid verleden tijd (Vergangenheit)"],["voltooid tegenwoordige tijd","Voltooid tegenwoordige tijd (Perfekt)"],["voltooid verleden tijd","Voltooid verleden tijd (Plusquamperfekt)"],["onvoltooid toekomende tijd","Onvoltooid toekomende tijd (Zukunft)"]],
   };
+  for(const catalog of Object.values(TENSES))catalog.unshift(["infinitiv","Infinitive (Grundformen)"]);
   const baseVerbKinds=new Set(["verb-infinitive","verb-participle","verb-imperative","verb-principal","verb-ing","verb-gerund"]);
   function activeBook(){return books.find(b=>b.id===chosenBook);}
   function isVerbBook(){return bookKind(activeBook()||{})==="verbs";}
@@ -989,7 +990,6 @@
     const verb=isVerbBook(),tenseWrap=get("tenseModeWrap"),modeWrap=get("studyModeWrap");
     if(tenseWrap)tenseWrap.hidden=!verb;
     if(modeWrap)modeWrap.hidden=verb;
-    if(get("conjugationsOption"))get("conjugationsOption").hidden=!verb;
     const select=get("tenseSelect");if(!select||!verb)return;
     const lang=activeBook().lang,catalog=TENSES[lang]||[];
     const old=localStorage.getItem(STORE+"_tense_"+lang)||select.value||"";
@@ -1100,8 +1100,8 @@
       return;
     }
     status.hidden=false;
-    const conjugations=get("practiceConjugations")?.checked!==false;
-    if(get("tenseSelect"))get("tenseSelect").disabled=!conjugations;
+    const conjugations=normalizeTense(get("tenseSelect")?.value)!=="infinitiv";
+    if(get("tenseSelect"))get("tenseSelect").disabled=false;
     if(!conjugations){
       const selected=selectedVerbRange(),missing=selected.filter(entry=>!String(entry.german||"").trim());
       button.disabled=analyzingVerbInput||!selected.length||missing.length>0||get("pageRangeInput")?.getAttribute?.("aria-invalid")==="true";
@@ -1136,7 +1136,7 @@
       for(const book of books.filter(b=>bookKind(b)==="verbs")){
         await verbDatabase.prepare(book,entries.filter(v=>v.bookId===book.id),
           specials.filter(v=>v.bookId===book.id&&v.kind==="verb-paradigm"),
-          (TENSES[book.lang]||[]).map(([tense])=>tense).filter(tense=>tense!=="impératif"));
+          (TENSES[book.lang]||[]).map(([tense])=>tense).filter(tense=>tense!=="impératif"&&tense!=="infinitiv"));
       }
     }).catch(error=>{
       if(revision===preparationRevision)preparationError=String(error.message||error);
@@ -1155,7 +1155,7 @@
     const selected=selectedVerbRange();
     const tense=normalizeTense(get("tenseSelect").value);
     const reverse=get("direction").value==="foreign_to_de";
-    if(get("practiceConjugations")?.checked===false){
+    if(tense==="infinitiv"){
       trainingItems=selected.map(base=>({
         prompt:reverse?base.foreign:base.german,target:reverse?base.german:base.foreign,
         pLang:reverse?activeBook().lang:"de-DE",tLang:reverse?"de-DE":activeBook().lang,
@@ -1289,7 +1289,8 @@
     const cards=tense==="impératif"?(window.VOCVerbPresentation?.imperativeCards(prepared)||[]):prepared.cards[tense]||[];
     for(const card of cards)row(card.foreign,card.german||
       "Konjugationsaufgabe: "+card.grammaticalPrompt);
-    if(!cards.length)row("Keine vorbereiteten Formen",missing);
+    if(tense==="infinitiv")row(item.verbLemma,item.record?.german||item.target);
+    else if(!cards.length)row("Keine vorbereiteten Formen",missing);
     table.append(tbody);
     const note=document.createElement("p");
     note.className="verb-reference-note";
