@@ -1,3 +1,12 @@
+## 2026-11-16 – Einmalige Bereinigung der Verbenbuch-Seiten
+
+- Nutzer bestätigt tatsächliche Verben-Scans nur 154–156 und 178 und beauftragt einmalige Entfernung der zusätzlichen Seiten aus dem Verbenbuch 9962f9e0-34f9-44f6-8f3b-e2cf060d7052. Kein allgemeiner Seitenfilter/Hardcoding eingeführt, App bleibt 0.5.14.
+- Live-Serverbefund: 523 Vokabeldatensätze dieses Buchs, darunter 58 Grundformen ausschließlich auf den vier bestätigten Seiten. Zusätzliche Seiten stammen aus 45 alten kind=conjugation-Einträgen: 186 (15), 190 (6), 191 (18), 193 (6). Alle zugehörigen acht Infinitive besitzen bereits korrekte Grundformen: appeler/échanger ->154, devoir/dire/entendre/rendre/vendre ->155, écrire ->156. Keine Aussage, dass diese Seiten erneut gescannt wurden; belegbar sind gespeicherte Altzuordnungen.
+- Datenbereinigung 2026-11-16T14:09:01Z: 45 bestehende IDs unverändert, Seiten und vorhandene Seiten-/Vokabelreferenzen der zugehörigen Grundform zugeordnet, updatedAt aktualisiert. Keine Löschung, keine Änderung der Sprachformen/Übersetzungen, keine Konjugationsneugenerierung, keine anderen Bücher/Prepared-Records/KI-Sätze geändert. Datenänderung wirkt über gemeinsame DB in Produktion und Test. Temporäre Vorher-/Nachher-Sicherung für Sitzung vorhanden.
+- Readback: alle 45 Payloads identisch zurückgelesen, Gesamtzahl 523 unverändert, 58 Infinitive unverändert, Seitenmenge genau 154/155/156/178. Produktivbrowser nach Reload/Sync: Buchlabel S.154–156,178; Seitenfeld 154-156,178; Auswahlliste 58 Verben. Abnahmekriterium erfüllt. Keine Quellcodeänderung; bestehende reale Offline-/KI-/Mehrgeräte-Prüflücken unverändert. Nächster Schritt Nutzerprüfung nach Online-Synchronisierung, keine weitere pauschale Bereinigung.
+
+---
+
 ## 2026-11-16 – Nachprüfung und Korrektur des übertragenen Repository-Stands
 
 - Zusätzlicher CI-Lauf des reconcilierten Entwicklungsbranches deckte fehlendes reference/manifest.json auf (ENOENT). Ursache: rsync-Ausschluss manifest.json zum Erhalt der PWA-Identität traf auch das Unterverzeichnis; erste Tests liefen vor dem Kopieren. Vorhandene Serverkonjugationen verdeckten das im Browser. Fehler behoben durch gezieltes Ergänzen des unveränderten Referenzmanifests. Zusätzlich bislang beim git add ausgelassene supabase/migrations und tools/Referenzaufbereitung vollständig ergänzt; keine SQL-Migration ausgeführt, keine Datenänderung.
