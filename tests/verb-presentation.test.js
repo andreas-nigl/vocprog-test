@@ -24,3 +24,14 @@ test('Speech omits bracketed form hints but retains spoken German pronouns',()=>
  assert.equal(window.cleanSpokenText('(tu) rends / (nous) rendons / (vous) rendez'),'rends / rendons / rendez');
  assert.equal(window.cleanSpokenText(api.germanImperative(verb.imperativeGerman)),'gib zurück / geben wir zurück / gebt zurück / geben Sie zurück');
 });
+test('Changing tense preserves first and last selected vocabulary IDs',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../vocprog-enhancements.js'),'utf8');
+ const fragment=source.slice(source.indexOf('  window.refreshVerbSelection='),source.indexOf('  const preparedStorage='));
+ const elements={startVocab:{value:'0'},endVocab:{value:'0'},tenseSelect:{value:'impératif'}};
+ const window={};new Function('window','elements',`
+ const get=id=>elements[id],isVerbBook=()=>true,activeBook=()=>({lang:'fr-FR'}),localStorage={setItem(){}} ,STORE='x';
+ const filteredVocabList=[{id:'first'},{id:'second'}],refreshVerbSelection=()=>{},updateVerbReadiness=()=>{};
+ const filterVocabByPages=()=>{elements.endVocab.value='1';};
+ ${fragment}`)(window,elements);
+ window.refreshVerbSelection();assert.equal(elements.endVocab.value,'0');
+});

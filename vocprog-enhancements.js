@@ -942,12 +942,20 @@
     localStorage.setItem(STORE+"_tense_"+lang,select.value);
   }
   window.refreshVerbSelection=function(){
+    const first=filteredVocabList[Number(get("startVocab").value)]?.id;
+    const last=filteredVocabList[Number(get("endVocab").value)]?.id;
     if(isVerbBook()){
       const current=get("tenseSelect")?.value,lang=activeBook()?.lang;
       if(current&&lang)localStorage.setItem(STORE+"_tense_"+lang,current);
     }
     refreshVerbSelection();
-    if(isVerbBook())filterVocabByPages();
+    if(isVerbBook()){
+      filterVocabByPages();
+      const start=filteredVocabList.findIndex(entry=>entry.id===first);
+      const end=filteredVocabList.findIndex(entry=>entry.id===last);
+      if(start>=0)get("startVocab").value=String(start);
+      if(end>=0)get("endVocab").value=String(end);
+    }
     updateVerbReadiness();
   };
   const preparedStorage={
@@ -1046,7 +1054,7 @@
     status.textContent=preparingVerbData?"Konjugationen werden vorbereitet …":
       preparationError?"Vorbereitung fehlgeschlagen: "+preparationError:
       missing.length?"Formen/Übersetzungen noch nicht vollständig abgeglichen: "+missing.map(v=>v.foreign).join(", "):
-      selected.length+" Verben · "+(selected.length*slots)+" Formen mit deutschen Lernentsprechungen abgeglichen.";
+      selected.length+(selected.length===1?" Verb · ":" Verben · ")+(selected.length*slots)+" Formen mit deutschen Lernentsprechungen abgeglichen.";
     get("rangeCard").classList.toggle("hidden",preparingVerbData||analyzingVerbInput||!filteredVocabList.length||
       !get("trainerCard").classList.contains("hidden"));
   }
