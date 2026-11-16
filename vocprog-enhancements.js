@@ -843,6 +843,12 @@
       try{persistMetadata();}catch(error){specials.splice(previousLength);throw error;}
       lastSentenceAddition={bookId:job.bookId,count:added.length};
       updateVerbReadiness();
+      if(typeof syncNow==="function"){
+        const synced=await syncNow();
+        lastSentenceAddition.serverConfirmed=synced===true;
+        if(synced!==true)alert(added.length+" neue Sätze sind lokal gespeichert. Die Serverübertragung ist noch nicht bestätigt; sie wird beim nächsten Abgleich erneut versucht.");
+      }
+      if(controller.signal.aborted||sentenceJob!==job)return;
       sentenceCards(force?added:window.VOCSentences.eligible(specials,job.bookId,slice),random);
     }catch(error){
       if(error.name!=="AbortError")alert(error.message);
@@ -1020,7 +1026,8 @@
       button.textContent=sentenceJob?"Generierung abbrechen":"▶ Abfrage starten";
       status.textContent=book?vocabularyBookSummary(allVocab().filter(entry=>entry.bookId===book.id),
         specials.filter(entry=>entry.bookId===book.id)):"";
-      if(lastSentenceAddition?.bookId===book?.id)status.textContent+=" "+lastSentenceAddition.count+" neu hinzugefügt.";
+      if(lastSentenceAddition&&lastSentenceAddition.bookId===book?.id)status.textContent+=" "+lastSentenceAddition.count+" neu hinzugefügt"+
+        (lastSentenceAddition.serverConfirmed?" und auf dem Server bestätigt.":"; lokal gespeichert.");
       return;
     }
     status.hidden=false;
@@ -1505,7 +1512,13 @@
   }
   window.syncVocprog=syncNow;
   let lastError="",syncAgain=false;
-  async function syncNow(){
+  let syncQueue=Promise.resolve();
+  function syncNow(){
+    const task=syncQueue.then(performSync);
+    syncQueue=task.catch(()=>false);
+    return task;
+  }
+  async function performSync(){
     if(syncing||!navigator.onLine)return false;
     syncing=true;renderStatus();
     try{

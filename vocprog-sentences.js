@@ -33,8 +33,6 @@
         throw Error("KI-Satz enthält fehlende oder ungültige Vokabelzuordnungen.");
       return {...item,german:text(item.german),foreign:text(item.foreign),vocabIds};
     });
-    const covered=new Set(validated.flatMap(item=>item.vocabIds));
-    if([...allowed].some(id=>!covered.has(id)))throw Error("Die KI-Antwort deckt die ausgewählten Vokabeln nicht vollständig ab.");
     return validated;
   }
   const api={stored,eligible,validate,pairKey};

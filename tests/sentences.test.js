@@ -20,7 +20,7 @@ test('Legacy batch retains both language directions and conservatively requires 
 test('Generation refuses unknown or missing vocabulary associations',()=>{
  assert.throws(()=>api.validate([{...sentence,vocabIds:['x']}],words));
  assert.throws(()=>api.validate([{...sentence,vocabIds:[]}],words));
- assert.throws(()=>api.validate([{...sentence,vocabIds:['a']}],words));
+ assert.deepEqual(api.validate([{...sentence,vocabIds:['a']}],words)[0].vocabIds,['a']);
  assert.deepEqual(api.validate([sentence],words)[0].vocabIds,['a','b']);
 });
 const source=fs.readFileSync(path.join(__dirname,'../vocprog-enhancements.js'),'utf8');
@@ -31,7 +31,7 @@ function harness({cached=[],online=true,fetcher}={}){
  const get=key=>{if(!buttons.has(key))buttons.set(key,{id:key,value:key==='apiKey'?'test-key':key==='direction'?'de_to_foreign':'',checked:false,textContent:'',classList:{add(){},remove(){}},setAttribute(){},removeAttribute(){}});return buttons.get(key);};
  const setup=new Function('state','get','api','fetcher',`
  let syncing=false;
- const syncNow=async()=>state.syncFailure?false:true;
+ const syncNow=async()=>state.synchronize?state.synchronize():state.syncFailure?false:true;
  let specials=state.specials,chosenBook='book',trainingItems=[];
  const window={VOCSentences:api},navigator={get onLine(){return state.online;}},initialSyncReady=Promise.resolve();
  const activeBook=()=>({lang:'fr-FR'}),filteredVocabList=[];
@@ -96,7 +96,7 @@ function syncClient(remote,initial=[]){
  return {ok:true,json:async()=>state.dropConfirmation&&_url.includes('record_id=in.')?[]:JSON.parse(JSON.stringify([...remote.values()].sort((a,b)=>a.record_id.localeCompare(b.record_id)).slice(offset,offset+limit)))};
  };
  ${fragment}
- return {sync:syncNow,queue:scheduleSync,entries:()=>specials,add:item=>specials.push(item),error:()=>lastError};`);
+ return {sync:syncNow,queue:scheduleSync,entries:()=>specials,add:item=>specials.push(item),error:()=>lastError,replace:values=>{specials=values;}};`);
  return {state,...setup(state,remote)};
 }
 test('Actual synchronization serializes sentence IDs and vocabulary IDs and restores them on a second client',async()=>{
@@ -156,4 +156,26 @@ test('Failed server inventory never starts a paid AI generation',async()=>{
  const h=harness();h.state.syncFailure=true;
  await h.run(words,h.get('startTrainingBtn'),false);
  assert.equal(h.state.requests,undefined);assert.match(h.state.alerts[0],/Keine neue Generierung gestartet/);
+});
+
+test('Full generation-to-server flow appends 25 partially covering sentences to 25 legacy sentences',async()=>{
+ const legacy={id:'legacy',bookId:'book',key:'["a","b"]',updatedAt:'2026-01-01T00:00:00Z',items:Array.from({length:25},(_,i)=>({prompt:'Alt '+i,target:'Ancien '+i,pLang:'de-DE',tLang:'fr-FR'}))};
+ const remote=new Map(),client=syncClient(remote,[legacy]);await client.sync();
+ const generated=Array.from({length:25},(_,i)=>({german:'Neu '+i,foreign:'Nouveau '+i,vocabIds:['a']}));
+ const h=harness({cached:[legacy],fetcher:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify(generated)}]}}]})})});
+ h.state.synchronize=()=>{client.replace(h.state.specials);return client.sync();};
+ await h.run([...words,{id:'c'}],h.get('newSentencesBtn'),false,true);
+ assert.equal(h.state.saved,1);assert.equal(h.state.entered,1);
+ const other=syncClient(remote);assert.equal(await other.sync(),true);
+ assert.equal(api.stored(other.entries(),'book').length,50);
+ assert.equal(api.eligible(other.entries(),'book',words).length,50);
+ assert.equal(api.eligible(other.entries(),'book',words.slice(0,1)).length,25);
+ assert.equal(api.eligible(other.entries(),'book',words.slice(1)).length,0);
+});
+test('Failed upload retains newly generated sentences locally and reports missing confirmation',async()=>{
+ const h=harness({cached:[sentence],fetcher:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify([{...sentence,german:'Neu',foreign:'Nouveau',vocabIds:['a']}])}]}}]})})});
+ let calls=0;h.state.synchronize=async()=>++calls===1;
+ await h.run(words,h.get('newSentencesBtn'),false,true);
+ assert.equal(h.state.specials.length,2);assert.equal(h.state.saved,1);
+ assert.match(h.state.alerts[0],/lokal gespeichert/);
 });

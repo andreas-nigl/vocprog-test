@@ -1,5 +1,5 @@
-const CACHE="vocprog-staging-20261116-v23";
-const ASSETS=["./vocprog-sentences.js?v=0.5.8-1","./","./index.html","./manifest.json","./vocprog-enhancements.js?v=0.5.8-1","./vocprog-fr-reference.js?v=0.5.8-1","./vocprog-enhancements.css?v=0.5.8-1","./favicon.svg","./vocprog-wasm-adapter.js?v=0.5.8-1","./vocprog-morphology.js?v=0.5.8-1","./vocprog-independent-reference.js?v=0.5.8-1","./vocprog-german-forms.js?v=0.5.8-1","./reference/manifest.json?v=reference-20261114-1","./vocprog-verb-database.js?v=0.5.8-1","./vendor/ablaut/ablaut.js","./vendor/ablaut/ablaut_bg.wasm"];
+const CACHE="vocprog-staging-20261116-v24";
+const ASSETS=["./vocprog-sentences.js?v=0.5.9-1","./","./index.html","./manifest.json","./vocprog-enhancements.js?v=0.5.9-1","./vocprog-fr-reference.js?v=0.5.9-1","./vocprog-enhancements.css?v=0.5.9-1","./favicon.svg","./vocprog-wasm-adapter.js?v=0.5.9-1","./vocprog-morphology.js?v=0.5.9-1","./vocprog-independent-reference.js?v=0.5.9-1","./vocprog-german-forms.js?v=0.5.9-1","./reference/manifest.json?v=reference-20261114-1","./vocprog-verb-database.js?v=0.5.9-1","./vendor/ablaut/ablaut.js","./vendor/ablaut/ablaut_bg.wasm"];
 self.addEventListener("install",event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
 });
