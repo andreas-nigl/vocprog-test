@@ -1,3 +1,12 @@
+## 2026-11-16 – Testfassung pausiert, Weiterentwicklung nur Produktion
+
+- Neue ausdrückliche Nutzerentscheidung ersetzt vorherige Parallelentwicklung: ab sofort nur normale App vocprog weiterentwickeln/veröffentlichen. Test-App erst nach ausdrücklicher gemeinsamer Entscheidung für größere Änderungen reaktivieren; Änderungen erst nach erfolgreicher Prüfung in Produktion übernehmen. Keine automatische Spiegelung neuer Appänderungen nach vocprog-test.
+- Vor Deaktivierung Remote-Bäume verglichen: aktuelle Anwendungsquellen identisch, absichtliche Unterschiede nur index.html (Version/Testvorschau), manifest.json (PWA-Identität) und historische Standalone nur im Testrepo. Beide bei 0.5.15. Letzter aktiver Teststand vollständig in Commit 0a521ec7fce47aca367df05df19585cfece30c26 gesichert. Repository bleibt erhalten; keine Buch-/Vokabel-/KI-Satz-/Statistikdaten löschen.
+- Umsetzung: Test-index durch ruhende Hinweisseite mit Link zur normalen App ersetzt. Test-sw durch scopebegrenzten Stilllegungsworker ersetzt: entfernt ausschließlich eigene vocprog-cache:/vocprog-test/:-Caches, navigiert ausschließlich eigene kontrollierte Testfenster auf Hinweisseite, deregistriert sich. Keine localStorage-/IndexedDB-Löschung, kein API-/Sync-/Generierungsaufruf auf Hinweisseite, keine Änderungen am Produktiv-SW oder Produktivmanifest. Offline/geschlossene Geräte können alte App erst beim nächsten Online-Aufruf aktualisieren; dauerhaft offline installierte Kopien lassen sich nicht entfernt abschalten.
+- Produktive App bleibt 0.5.15. Kein neuer Standalone-/Appbuild; Quell-/Dokumentationsänderungen zur Stilllegung. Abnahmekriterien: Test-URL zeigt Deaktivierung und Produktivlink, Produktion weiterhin 0.5.15; SW-Bereichsgrenze schützt andere Appdaten und Cache. Veröffentlichung/Liveprüfung folgen. Bei späterer Reaktivierung Testquellen zuerst mit dann aktuellem Produktivstand abgleichen, SW erneut aktivieren/versionieren und beide Pfade getrennt prüfen.
+
+---
+
 ## 2026-11-16 – Veröffentlichung und Prüfung 0.5.15 abgeschlossen
 
 - App-Commits: Produktion 81298dfd80f26c825ace7c78e15e665edc56670e, Test 72c4c653787fd36b6ec4b6a4967cfb5abfc489fa, Entwicklungsbranch c00024c857d24cd6597dfe761104b31276682549. Pages-Läufe 43909880223 (Produktion) und 43909870280 (Test) success; Entwicklungs-CI 43909890882 success. Beide URLs live mit 0.5.15 bestätigt. Offlinefähige SW-Assets gebaut/veröffentlicht; echter Offline-Neustart weiterhin ausstehend. Keine neue Standalone.
