@@ -179,3 +179,10 @@ test('Failed upload retains newly generated sentences locally and reports missin
  assert.equal(h.state.specials.length,2);assert.equal(h.state.saved,1);
  assert.match(h.state.alerts[0],/lokal gespeichert/);
 });
+
+test('No sentence matches a narrowed selection: automatically generate and append a suitable new sentence',async()=>{
+ const h=harness({cached:[sentence],fetcher:async()=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify([{german:'Eine Katze.',foreign:'Un chat.',vocabIds:['a']}])}]}}]})})});
+ await h.run(words.slice(0,1),h.get('startTrainingBtn'),false);
+ assert.equal(h.state.requests,1);assert.equal(h.state.specials.length,2);
+ assert.equal(h.state.cards.length,1);assert.equal(h.state.cards[0].target,'Un chat.');
+});
