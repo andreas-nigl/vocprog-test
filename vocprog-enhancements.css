@@ -152,3 +152,6 @@ body:has(#trainerCard:not(.hidden)) #rangeCard{display:none!important}
 #pageRangeInput{margin-bottom:4px}#pageRangeInput[aria-invalid="true"]{border-color:#b91c1c}
 .page-range-help,.page-range-error{font-size:.78rem;line-height:1.35;margin:0 0 12px;color:var(--text-muted)}
 .page-range-error{color:#b91c1c}.page-range-error[hidden]{display:none}
+
+.settings-heading{font-size:.85rem;font-weight:700;margin:4px 0 6px;color:var(--text-muted)}
+#conjugationsOption[hidden]{display:none!important}

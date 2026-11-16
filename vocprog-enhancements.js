@@ -989,6 +989,7 @@
     const verb=isVerbBook(),tenseWrap=get("tenseModeWrap"),modeWrap=get("studyModeWrap");
     if(tenseWrap)tenseWrap.hidden=!verb;
     if(modeWrap)modeWrap.hidden=verb;
+    if(get("conjugationsOption"))get("conjugationsOption").hidden=!verb;
     const select=get("tenseSelect");if(!select||!verb)return;
     const lang=activeBook().lang,catalog=TENSES[lang]||[];
     const old=localStorage.getItem(STORE+"_tense_"+lang)||select.value||"";
@@ -1099,6 +1100,16 @@
       return;
     }
     status.hidden=false;
+    const conjugations=get("practiceConjugations")?.checked!==false;
+    if(get("tenseSelect"))get("tenseSelect").disabled=!conjugations;
+    if(!conjugations){
+      const selected=selectedVerbRange(),missing=selected.filter(entry=>!String(entry.german||"").trim());
+      button.disabled=analyzingVerbInput||!selected.length||missing.length>0||get("pageRangeInput")?.getAttribute?.("aria-invalid")==="true";
+      status.textContent=missing.length?"Grundbedeutung fehlt: "+missing.map(entry=>entry.foreign).join(", "):
+        selected.length+(selected.length===1?" Verb – nur Grundform.":" Verben – nur Grundformen.");
+      get("rangeCard").classList.toggle("hidden",analyzingVerbInput||!filteredVocabList.length||!get("trainerCard").classList.contains("hidden"));
+      return;
+    }
     const snapshot=verbDatabase.get(chosenBook),tense=normalizeTense(get("tenseSelect")?.value);
     const selected=selectedVerbRange();
     const slots=tense==="impératif"?3:6;
@@ -1141,9 +1152,21 @@
     if(!isVerbBook())return oldStartTraining(event);
     updateVerbReadiness();
     if(get("startTrainingBtn").disabled)return;
-    const selected=selectedVerbRange(),snapshot=verbDatabase.get(chosenBook);
+    const selected=selectedVerbRange();
     const tense=normalizeTense(get("tenseSelect").value);
     const reverse=get("direction").value==="foreign_to_de";
+    if(get("practiceConjugations")?.checked===false){
+      trainingItems=selected.map(base=>({
+        prompt:reverse?base.foreign:base.german,target:reverse?base.german:base.foreign,
+        pLang:reverse?activeBook().lang:"de-DE",tLang:reverse?"de-DE":activeBook().lang,
+        ref:base.refVocab||"",sourceId:base.id,bookId:base.bookId,page:base.page,
+        kind:"verbs",verbLemma:base.foreign,verbId:base.verbId,verbTense:tense,
+        acceptedTargets:reverse?String(base.german).split(/\s*[,;\/]\s*/):[base.foreign],record:base
+      }));
+      if(get("randomize").checked)trainingItems.sort(()=>Math.random()-0.5);
+      enterTraining();return;
+    }
+    const snapshot=verbDatabase.get(chosenBook);
     trainingItems=selected.flatMap(base=>(tense==="impératif"?window.VOCVerbPresentation.imperativeCards(snapshot.verbs[base.verbId]):snapshot.verbs[base.verbId].cards[tense]).map(card=>{
       const german=card.german;
       return {prompt:reverse?card.foreign:german,
