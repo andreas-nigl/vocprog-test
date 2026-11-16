@@ -27,7 +27,7 @@ for (const [word, language, count, tense, expected] of [
     assert.ok(result.participle);
   });
 }
-test("Real table UI fills missing persons and keeps stored German", async () => {
+for(const selectedTense of ["présent","infinitiv"]) test("Real table UI shows prepared present conjugation for "+selectedTense, async () => {
   const engine = await loaded;
   const source = fs.readFileSync(path.join(root, "vocprog-enhancements.js"), "utf8");
   const fragment = source.slice(source.indexOf("  window.toggleVerbTable="), source.indexOf("  function validMerge"));
@@ -48,7 +48,7 @@ test("Real table UI fills missing persons and keeps stored German", async () => 
   await verbDatabase.prepare({id:"fr",lang:"fr-FR"},entries,[],["présent"]);
   const run = new Function("verbDatabase","window","document","get","trainingItems","currentIndex","allVocab","specials","activeBook","LANGS","TENSES","normalizeTense","frenchSurface",fragment);
   run(verbDatabase,window,document,id=>id==="verbTablePanel"?panel:new Element(),
-    [{kind:"verbs",verbId:"finir",verbLemma:"finir",bookId:"fr",verbTense:"présent"}],0,
+    [{kind:"verbs",verbId:"finir",verbLemma:"finir",bookId:"fr",verbTense:selectedTense}],0,
     ()=>entries,[],()=>({lang:"fr-FR"}),{"fr-FR":"Französisch"},{"fr-FR":[["présent","Présent"]]},x=>x,(t,i,f)=>["je","tu","il/elle/on","nous","vous","ils/elles"][i]+" "+f);
   await window.toggleVerbTable();
   const text = node => [node.textContent,...(node.children||[]).map(text)].join(" ");

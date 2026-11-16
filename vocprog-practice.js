@@ -10,6 +10,10 @@
         if(!correct)items.push({...items[index]});
         return true;
       },
+      progress(index){
+        const correct=[...answers.values()].filter(answer=>answer.correct).length;
+        return {current:Math.min(initialCount,correct+(answers.get(index)?.correct?0:1)),total:initialCount};
+      },
       speak(){spoken++;},
       complete(){return initialCount>0&&answers.size===items.length;},
       statistics(){

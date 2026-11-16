@@ -78,62 +78,6 @@
     localStorage.setItem(STORE+"_book",chosenBook);
   }
 
-  function consolidateVerbBooks(){
-    let total=0;
-    for(const lang of Object.keys(LANGS)){
-      const group=books.filter(b=>b.lang===lang&&bookKind(b)==="verbs")
-        .sort((a,b)=>String(a.id).localeCompare(String(b.id)));
-      if(group.length<2)continue;
-      const primary=group[0],duplicateIds=new Set(group.slice(1).map(b=>b.id));
-      const backupKey=STORE+"_verbbook_backup_"+lang+"_"+[...duplicateIds].sort().join("_");
-      if(!localStorage.getItem(backupKey)){
-        try{
-          localStorage.setItem(backupKey,JSON.stringify({
-            savedAt:new Date().toISOString(),books:group,
-            vocab:allVocab().filter(v=>v.bookId===primary.id||duplicateIds.has(v.bookId)),
-            specials:specials.filter(v=>v.bookId===primary.id||duplicateIds.has(v.bookId)),
-            history:history.filter(v=>v.bookId===primary.id||duplicateIds.has(v.bookId))
-          }));
-        }catch(e){console.error("Verbenbuch-Sicherung fehlgeschlagen",e);continue}
-      }
-      const at=new Date().toISOString(),identity=v=>[
-        v.kind||"",v.page||"?",v.verbId||v.infinitive||v.lemma||"",
-        v.tense||"",v.person||"",v.foreign||"",v.german||""
-      ].map(x=>String(x).normalize("NFKC").trim().toLowerCase()).join("|");
-      const known=new Map(),redirect=new Map();
-      for(const v of allVocab().filter(x=>x.bookId===primary.id))known.set(identity(v),v.id);
-      for(const key of Object.keys(localStorage).filter(x=>x.startsWith("vocab_trainer_data_"))){
-        const initial=read(key,[]),updated=[];
-        for(const v of initial){
-          if(!duplicateIds.has(v.bookId)){updated.push(v);continue}
-          const signature=identity(v),prior=known.get(signature);
-          if(prior&&prior!==v.id){redirect.set(v.id,prior);markDeleted("vocab",v,at);continue}
-          known.set(signature,v.id);
-          updated.push({...v,bookId:primary.id,updatedAt:at});
-        }
-        if(initial.some(v=>duplicateIds.has(v.bookId)))save(key,updated);
-      }
-      specials=specials.map(v=>duplicateIds.has(v.bookId)?{
-        ...v,bookId:primary.id,updatedAt:at,
-        sourceRefs:Array.isArray(v.sourceRefs)?v.sourceRefs.map(x=>redirect.get(x)||x):v.sourceRefs,
-        items:Array.isArray(v.items)?v.items.map(x=>({
-          ...x,sourceId:redirect.get(x.sourceId)||x.sourceId,
-          vocabId:redirect.get(x.vocabId)||x.vocabId
-        })):v.items
-      }:v);
-      history=history.map(v=>duplicateIds.has(v.bookId)?{
-        ...v,bookId:primary.id,sourceId:redirect.get(v.sourceId)||v.sourceId,
-        originalAt:v.originalAt||v.at,at,updatedAt:at
-      }:v);
-      for(const b of group.slice(1))markDeleted("book",b,at);
-      books=books.filter(b=>!duplicateIds.has(b.id));
-      if(duplicateIds.has(chosenBook))chosenBook=primary.id;
-      total+=duplicateIds.size;
-    }
-    if(total){persistMetadata();refreshBookChoices()}
-    return total;
-  }
-
   function persistMetadata(){
     save(STORE+"_books",books);save(STORE+"_special",specials);save(STORE+"_events",history);save(STORE+"_tombstones",tombstones);
     localStorage.setItem(STORE+"_book",chosenBook);
@@ -231,13 +175,10 @@
     if(refresh) loadFromLocalStorage();
     refreshBookChoices();
   }
-  function addBook(lang,name,kind="vocab"){
+  function addBook(lang,name,kind="vocab",sourceBookId=""){
     if(!name?.trim())return null;
-    if(kind==="verbs"&&lang){
-      const existing=books.find(b=>b.lang===lang&&bookKind(b)==="verbs");
-      if(existing)return existing;
-    }
     const b={id:id(),name:name.trim(),lang:lang||"",kind,updatedAt:new Date().toISOString()};
+    if(sourceBookId)b.sourceBookId=sourceBookId;
     books.push(b);persistMetadata();refreshBookChoices();return b;
   }
   window.openBookPicker=function(source){
@@ -283,8 +224,7 @@
   window.acceptScannedLanguage=function(language){
     if(!Object.prototype.hasOwnProperty.call(LANGS,language))throw Error("Unbekannte oder nicht unterstützte Sprache: "+language);
     if(pendingScanBook?.kind==="verbs"){
-      let book=books.find(x=>x.lang===language&&bookKind(x)==="verbs");
-      if(!book)book=addBook(language,pendingScanBook.name,"verbs");
+      const book=addBook(language,pendingScanBook.name,"verbs");
       pendingScanBook=null;localStorage.removeItem(STORE+"_pendingScanBook");
       chooseBook(book.id);
     }
@@ -292,14 +232,7 @@
     if(!b)throw Error("Vor dem Scannen bitte ein Buch auswählen.");
     if(b.lang&&b.lang!==language)throw Error("Buch „"+b.name+"“ enthält bereits "+(LANGS[b.lang]||b.lang)+". Die neu erkannten Seiten sind "+LANGS[language]+". Bitte ein eigenes Buch anlegen.");
     if(!b.lang){
-      if(bookKind(b)==="verbs"){
-        const other=books.find(x=>x.id!==b.id&&bookKind(x)==="verbs"&&x.lang===language);
-        if(other){
-          const unused=allVocab().some(x=>x.bookId===b.id);
-          if(!unused){books=books.filter(x=>x.id!==b.id);markDeleted("book",b,new Date().toISOString());chosenBook=other.id;b=other;}
-        }
-      }
-      if(!b.lang){b.lang=language;b.updatedAt=new Date().toISOString();}
+      b.lang=language;b.updatedAt=new Date().toISOString();
       persistMetadata();
     }
     get("targetLang").value=language;
@@ -454,14 +387,22 @@
     return parts.join(" ");
   };
 
+  function verbBookForSource(source,language){
+    if(!source)throw Error("Kein Quellbuch für Verben ausgewählt.");
+    if(bookKind(source)==="verbs"){
+      if(source.lang&&source.lang!==language)throw Error("Die Verbsprache passt nicht zum ausgewählten Buch.");
+      return source;
+    }
+    return books.find(book=>bookKind(book)==="verbs"&&book.lang===language&&book.sourceBookId===source.id)||
+      addBook(language,source.name,"verbs",source.id);
+  }
+
   window.ingestVerbInfinitives=async function(entries,language){
     if(!Array.isArray(entries)||!entries.length||!LANGS[language])return 0;
     const valid=entries.filter(e=>e&&String(e.infinitive||"").trim()&&String(e.german||"").trim());
     if(!valid.length)return 0;
     const source=books.find(b=>b.id===chosenBook);
-    let verbBook=books.find(b=>b.lang===language&&bookKind(b)==="verbs");
-    if(!verbBook&&source&&bookKind(source)==="verbs")verbBook=source;
-    if(!verbBook)verbBook=addBook(language,LANGS[language],"verbs");
+    const verbBook=verbBookForSource(source,language);
     const existing=new Set(allVocab().filter(v=>v.bookId===verbBook.id&&v.kind==="verb-infinitive")
       .map(v=>String(v.foreign||"").trim().toLocaleLowerCase()));
     const payload=[];
@@ -490,8 +431,8 @@
     const origin=books.find(b=>b.id===chosenBook);
     if(!origin)throw Error("Kein Quellbuch für Konjugationen ausgewählt.");
     const sourceBookId=origin.id;
-    const name=LANGS[language]+" – Verben";
-    let conjBook=books.find(b=>b.lang===language&&bookKind(b)==="verbs")||(bookKind(origin)==="verbs"?origin:null);
+    let conjBook=bookKind(origin)==="verbs"?verbBookForSource(origin,language):
+      books.find(b=>b.lang===language&&bookKind(b)==="verbs"&&b.sourceBookId===origin.id);
     const persons=new Set(["je","j'","tu","il/elle/on","nous","vous","ils/elles"]);
     const slot={"je":0,"j'":0,"tu":1,"il/elle/on":2,"nous":3,"vous":4,"ils/elles":5};
     const items=[];
@@ -529,7 +470,7 @@
       }
     }
     if(!items.length)return 0;
-    if(!conjBook){conjBook=addBook(language,name,"verbs");}
+    if(!conjBook){conjBook=verbBookForSource(origin,language);}
     // The original selected book may use the same language but a different ID.
     for(const item of items)persistFrenchReference(conjBook,item.infinitive);
     const count=mergeVocabularies(items.map(item=>({...item,bookId:conjBook.id})));
@@ -728,12 +669,16 @@
     if(practiceSession&&action==="spoken")practiceSession.speak();
     if(practiceSession&&action==="graded"){
       practiceSession.grade(currentIndex,other.correct===true,other.answer||"");
-      get("counter").textContent=(currentIndex+1)+" / "+trainingItems.length;
+      updatePracticeCounter();
       if(practiceSession.complete())finishPractice();
     }
     return entry;
   }
   let practiceSession=null;
+  function updatePracticeCounter(){
+    const progress=practiceSession.progress(currentIndex);
+    get("counter").textContent=progress.current+" / "+progress.total;
+  }
   function finishPractice(){
     if(!practiceSession?.complete())return;
     const result=practiceSession.statistics(),kind=trainingItems[0]?.kind;
@@ -755,6 +700,7 @@
   showCard=function(){
     oldShow();
     if(!practiceSession||practiceSession.items!==trainingItems)practiceSession=window.VOCPractice.create(trainingItems);
+    updatePracticeCounter();
     const previous=practiceSession.answers.get(currentIndex);
     analyzedThisCard=!!previous;
     const input=get("answerInput"),feedback=get("answerFeedback");
@@ -1281,7 +1227,9 @@
         }
       }
     }
-    const tense=normalizeTense(item.verbTense);
+    const requestedTense=normalizeTense(item.verbTense);
+    const present={"fr-FR":"présent","en-US":"simple present","es-ES":"presente","pt-PT":"presente","nl-NL":"onvoltooid tegenwoordige tijd"};
+    const tense=requestedTense==="infinitiv"?present[activeBook()?.lang]:requestedTense;
     const catalog=TENSES[activeBook()?.lang]||[];
     const title=catalog.find(([name])=>name===tense)?.[1]||tense;
     const match=title.match(/^(.+?)\s*\(([^)]+)\)$/);
@@ -1289,8 +1237,7 @@
     const cards=tense==="impératif"?(window.VOCVerbPresentation?.imperativeCards(prepared)||[]):prepared.cards[tense]||[];
     for(const card of cards)row(card.foreign,card.german||
       "Konjugationsaufgabe: "+card.grammaticalPrompt);
-    if(tense==="infinitiv")row(item.verbLemma,item.record?.german||item.target);
-    else if(!cards.length)row("Keine vorbereiteten Formen",missing);
+    if(!cards.length)row("Keine vorbereiteten Formen",missing);
     table.append(tbody);
     const note=document.createElement("p");
     note.className="verb-reference-note";
@@ -1635,7 +1582,6 @@
         remote.push(...page);offset+=page.length;
       }
       mergeRemote(remote);
-      consolidateVerbBooks();
       const server=new Map(remote.map(x=>[x.record_id,x]));
       const outgoing=records().filter(x=>!server.has(x.record_id)||
         newer(x.updated_at,server.get(x.record_id).updated_at));
@@ -1685,7 +1631,6 @@
     history=history.map(({profile,...event})=>event);
     save(STORE+"_events",history);
     ensureMigration();
-    consolidateVerbBooks();
     initialSyncReady=Promise.race([syncNow(),new Promise(resolve=>setTimeout(resolve,5000))]);
     if(chosenBook&&books.some(b=>b.id===chosenBook&&b.lang!=="la-LA"))chooseBook(chosenBook);else refreshBookChoices();
     updateOnlineState();

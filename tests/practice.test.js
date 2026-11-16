@@ -53,3 +53,13 @@ test('Manual exit does not show success and completion titles follow the current
  }
  assert.equal(api.create([]).complete(),false);
 });
+
+test('Counter keeps original total and advances only after a correct answer, including repeated errors',()=>{
+ const h=harness();assert.equal(h.get('counter').textContent,'1 / 2');
+ h.answer('wrong');assert.equal(h.get('counter').textContent,'1 / 2');
+ h.next();assert.equal(h.get('counter').textContent,'1 / 2');
+ h.answer('B');h.next();assert.equal(h.get('counter').textContent,'2 / 2');
+ h.answer('wrong again');h.next();assert.equal(h.get('counter').textContent,'2 / 2');
+ h.answer('A');assert.equal(h.get('practiceResultAskedValue').textContent,'4');
+ assert.equal(h.get('practiceResultPercent').textContent,'50 %');
+});
