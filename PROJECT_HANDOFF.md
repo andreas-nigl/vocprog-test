@@ -1,3 +1,11 @@
+## 2026-11-16 – Nachprüfung und Korrektur des übertragenen Repository-Stands
+
+- Zusätzlicher CI-Lauf des reconcilierten Entwicklungsbranches deckte fehlendes reference/manifest.json auf (ENOENT). Ursache: rsync-Ausschluss manifest.json zum Erhalt der PWA-Identität traf auch das Unterverzeichnis; erste Tests liefen vor dem Kopieren. Vorhandene Serverkonjugationen verdeckten das im Browser. Fehler behoben durch gezieltes Ergänzen des unveränderten Referenzmanifests. Zusätzlich bislang beim git add ausgelassene supabase/migrations und tools/Referenzaufbereitung vollständig ergänzt; keine SQL-Migration ausgeführt, keine Datenänderung.
+- Korrigierter Produktiv-App-Commit 10e19dc14986b1301c27920a2211a148ceea7db4; Entwicklungscommit a92da2c5d5f645a70d1d85942868542ff2190d4a. Frisch geklontes Produktivrepository: 102/102 Tests bestanden. GitHub-Entwicklungs-CI 43879842388 ebenfalls success. Vollständiger Bytevergleich aller versionierten Testdateien gegen frisch geklonte Produktion: nur absichtliche Unterschiede index.html (Version statt Testvorschau), manifest.json (bisherige Produktividentität) und fehlende historische Standalone 261105_2307_vocprog.html; alle aktuellen Module, Tests, Referenzdateien und WASM identisch.
+- Maßgebliche Regel für weitere Überführungen: Ausschlüsse nur als rootverankerte Pfade, anschließend Tests auf dem tatsächlich kopierten/committeten Zielstand und vollständigen Dateivergleich ausführen. Kein erneuter Binärupload und keine Uploadschleife.
+
+---
+
 ## 2026-11-16 – Abschluss der Produktivübernahme 0.5.14
 
 - Verfügbar und live geprüft: https://andreas-nigl.github.io/vocprog/ (Version 0.5.14) und https://andreas-nigl.github.io/vocprog-test/ (Testvorschau 0.5.14). Test-App bleibt Entwicklungsumgebung. Produktiv-App-Commit fa3d958b06058ab7b3919e9a0068ed740b107464; Test-App-Commit 64a9863dd3fdc4d656ac511a8884663f72dd9298. Keine neue Standalone gebaut; vorhandene Altdatei ist kein 0.5.14-Build.
